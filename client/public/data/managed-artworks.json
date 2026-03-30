@@ -1,0 +1,210 @@
+[
+  {
+    "id": "managed-crystal-chandelier-journey-05c42054",
+    "title": "Crystal Chandelier Journey",
+    "description": "Crystal Chandelier Journey을 중심으로 시선을 끌어당기는 abstract 계열 미디어아트 영상입니다.",
+    "category": "Abstract",
+    "image": "/thumbnails/imported/crystal-chandelier-journey-05c42054.jpg",
+    "videoSrc": "/videos/imported/crystal-chandelier-journey-05c42054.mp4",
+    "displayType": "Horizontal",
+    "runtime": "20s",
+    "resolution": "1280x720",
+    "tags": [
+      "cinematic",
+      "crystal",
+      "shimmer",
+      "abstract"
+    ],
+    "worldType": "standard",
+    "sourcePath": "C:/Users/user/Downloads/소라1/20250421_1233_Crystal Chandelier Journey_simple_compose_01jsb6g7h3e6nawjdxdtjqgy2b.mp4",
+    "sourceHash": "05c4205464b9f5614f183dfa396226cb35c1e2ef37bd1e2d64a64e81224975d1",
+    "importedAt": "2026-03-12T01:55:42.595Z"
+  },
+  {
+    "id": "managed-paper-crane-festival-bb4ef3c3",
+    "title": "Paper Crane Festival",
+    "description": "Paper Crane Festival을 중심으로 공간 무드를 부드럽게 채우는 festival 계열 미디어아트 영상입니다.",
+    "category": "Festival",
+    "image": "/thumbnails/imported/paper-crane-festival-bb4ef3c3.jpg",
+    "videoSrc": "/videos/imported/paper-crane-festival-bb4ef3c3.mp4",
+    "displayType": "Horizontal",
+    "runtime": "20s",
+    "resolution": "1280x720",
+    "tags": [
+      "ambient",
+      "paper-crane",
+      "festival",
+      "korean"
+    ],
+    "worldType": "local",
+    "sourcePath": "C:/Users/user/Downloads/소라1/20250723_0020_Paper Crane Festival_simple_compose_01k0sbhqe8fv8rjecf50a1exsy.mp4",
+    "sourceHash": "bb4ef3c3f53d7ef6418431a5b713a0ecac901f15985ed453a83684f6349188df",
+    "importedAt": "2026-03-12T01:55:43.039Z"
+  },
+  {
+    "id": "managed-cosmic-light-dance-35114c20",
+    "title": "Cosmic Light Dance",
+    "description": "Cosmic Light Dance을 중심으로 시선을 끌어당기는 cosmic 계열 미디어아트 영상입니다.",
+    "category": "Cosmic",
+    "image": "/thumbnails/imported/cosmic-light-dance-35114c20.jpg",
+    "videoSrc": "/videos/imported/cosmic-light-dance-35114c20.mp4",
+    "displayType": "Horizontal",
+    "runtime": "20s",
+    "resolution": "1280x720",
+    "tags": [
+      "cinematic",
+      "cosmic",
+      "space",
+      "nebula"
+    ],
+    "worldType": "standard",
+    "sourcePath": "C:/Users/user/Downloads/소라1/20250725_0336_Cosmic Light Dance_simple_compose_01k0yvh4aeftjb4hzf8w786afq.mp4",
+    "sourceHash": "35114c20e94dffb84c576ae4cb7ffe928285ea36594280c757389dd6e29170fc",
+    "importedAt": "2026-03-12T01:55:43.433Z"
+  },
+  {
+    "id": "managed-digital-dance-of-light-0a702bb8",
+    "title": "Digital Dance of Light",
+    "description": "Digital Dance of Light을 중심으로 시선을 끌어당기는 digital 계열 미디어아트 영상입니다.",
+    "category": "Digital",
+    "image": "/thumbnails/imported/digital-dance-of-light-0a702bb8.jpg",
+    "videoSrc": "/videos/imported/digital-dance-of-light-0a702bb8.mp4",
+    "displayType": "Horizontal",
+    "runtime": "20s",
+    "resolution": "1280x720",
+    "tags": [
+      "cinematic",
+      "digital",
+      "motion",
+      "light"
+    ],
+    "worldType": "standard",
+    "sourcePath": "C:/Users/user/Downloads/소라1/20250812_1929_Digital Dance of Light_simple_compose_01k2ex892dec7tss1s5y89979k.mp4",
+    "sourceHash": "0a702bb8e8886215eeb591abf06815b7175e33d90a33404ff1ead72c90b68501",
+    "importedAt": "2026-03-12T01:55:44.030Z"
+  },
+  {
+    "id": "managed-digital-phoenix-emerges-57630537",
+    "title": "Digital Phoenix Emerges",
+    "description": "Digital Phoenix Emerges을 중심으로 시선을 끌어당기는 traditional 계열 미디어아트 영상입니다.",
+    "category": "Traditional",
+    "image": "/thumbnails/imported/digital-phoenix-emerges-57630537.jpg",
+    "videoSrc": "/videos/imported/digital-phoenix-emerges-57630537.mp4",
+    "displayType": "Horizontal",
+    "runtime": "20s",
+    "resolution": "1280x720",
+    "tags": [
+      "cinematic",
+      "phoenix",
+      "rebirth",
+      "light",
+      "digital",
+      "motion"
+    ],
+    "worldType": "standard",
+    "sourcePath": "C:/Users/user/Downloads/소라1/20250812_1829_Digital Phoenix Emerges_simple_compose_01k2ess43xesqrf7w3y41hmn72.mp4",
+    "sourceHash": "5763053761eaa5ba2bd51fcacda6cde9516c6011b89167cbed44fb6bfaf116f2",
+    "importedAt": "2026-03-12T01:55:44.392Z"
+  },
+  {
+    "id": "managed-battle-of-opposing-dragons-a8170bd1",
+    "title": "Battle of Opposing Dragons",
+    "description": "Battle of Opposing Dragons을 중심으로 시선을 끌어당기는 traditional 계열 미디어아트 영상입니다.",
+    "category": "Traditional",
+    "image": "/thumbnails/imported/battle-of-opposing-dragons-a8170bd1.jpg",
+    "videoSrc": "/videos/imported/battle-of-opposing-dragons-a8170bd1.mp4",
+    "displayType": "Horizontal",
+    "runtime": "20s",
+    "resolution": "1280x720",
+    "tags": [
+      "cinematic",
+      "dragon",
+      "myth",
+      "energy",
+      "dramatic",
+      "kinetic"
+    ],
+    "worldType": "standard",
+    "sourcePath": "C:/Users/user/Downloads/소라1/20250518_0121_Battle of Opposing Dragons_simple_compose_01jvfgtgk5fsr860gqzvdmdwkp.mp4",
+    "sourceHash": "a8170bd1e2a081c102013fb2052a8b642a250a0d76906c2005e0bf3a0232e538",
+    "importedAt": "2026-03-12T01:55:44.838Z"
+  },
+  {
+    "id": "managed-cosmic-light-dance-0a21ccff",
+    "title": "Cosmic Light Dance",
+    "description": "Cosmic Light Dance을 중심으로 시선을 끌어당기는 cosmic 계열 미디어아트 영상입니다.",
+    "category": "Cosmic",
+    "image": "/thumbnails/imported/cosmic-light-dance-0a21ccff.jpg",
+    "videoSrc": "/videos/imported/cosmic-light-dance-0a21ccff.mp4",
+    "displayType": "Horizontal",
+    "runtime": "10s",
+    "resolution": "1920x1080",
+    "tags": [
+      "cinematic",
+      "cosmic",
+      "space",
+      "nebula"
+    ],
+    "worldType": "standard",
+    "sourcePath": "C:/Users/user/Downloads/소라1/20250807_0007_Cosmic Light Dance_simple_compose_01k1zyr269e8qbj8mv2frt836a.mp4",
+    "sourceHash": "0a21ccff2673ee41afb78ab9367a791918564e0bf5f59153a7af16bfc344ff70",
+    "importedAt": "2026-03-12T01:55:45.374Z"
+  },
+  {
+    "id": "managed-cosmic-energy-dance-cfd76fea",
+    "title": "Cosmic Energy Dance",
+    "description": "Cosmic Energy Dance을 중심으로 시선을 끌어당기는 cosmic 계열 미디어아트 영상입니다.",
+    "category": "Cosmic",
+    "image": "/thumbnails/imported/cosmic-energy-dance-cfd76fea.jpg",
+    "videoSrc": "/videos/imported/cosmic-energy-dance-cfd76fea.mp4",
+    "displayType": "Horizontal",
+    "runtime": "10s",
+    "resolution": "1920x1080",
+    "tags": [
+      "cinematic",
+      "cosmic",
+      "space",
+      "nebula"
+    ],
+    "worldType": "standard",
+    "sourcePath": "C:/Users/user/Downloads/소라1/20250807_0346_Cosmic Energy Dance_simple_compose_01k20b9qh9f6n897g4mec7k4t2.mp4",
+    "sourceHash": "cfd76fea206df1a75eb219939e3850cf90e7f21ed843c18edc787d147e9d5c32",
+    "importedAt": "2026-03-12T01:55:45.690Z"
+  },
+  {
+    "id": "managed-sora-imported-artwork-7ae49840",
+    "title": "Sora Imported Artwork",
+    "description": "Sora Imported Artwork을 중심으로 시선을 끌어당기는 abstract 계열 미디어아트 영상입니다.",
+    "category": "Abstract",
+    "image": "/thumbnails/imported/sora-imported-artwork-7ae49840.jpg",
+    "videoSrc": "/videos/imported/sora-imported-artwork-7ae49840.mp4",
+    "displayType": "Horizontal",
+    "runtime": "20s",
+    "resolution": "1280x704",
+    "tags": [
+      "cinematic"
+    ],
+    "worldType": "standard",
+    "sourcePath": "C:/Users/user/Downloads/sora-video-d01256cb-f641-4232-b3e1-3c74f9daf803 (1).mp4",
+    "sourceHash": "7ae49840fe32773d2a353abbfdd3f4d23099b90db682305d59ee02523866064b",
+    "importedAt": "2026-03-12T01:55:46.006Z"
+  },
+  {
+    "id": "managed-sora-imported-artwork-de2d649e",
+    "title": "Sora Imported Artwork",
+    "description": "Sora Imported Artwork을 중심으로 시선을 끌어당기는 abstract 계열 미디어아트 영상입니다.",
+    "category": "Abstract",
+    "image": "/thumbnails/imported/sora-imported-artwork-de2d649e.jpg",
+    "videoSrc": "/videos/imported/sora-imported-artwork-de2d649e.mp4",
+    "displayType": "Horizontal",
+    "runtime": "15s",
+    "resolution": "1280x704",
+    "tags": [
+      "cinematic"
+    ],
+    "worldType": "standard",
+    "sourcePath": "C:/Users/user/Downloads/sora-video-f884e93a-e6f8-498c-a4db-ffdab2e50462.mp4",
+    "sourceHash": "de2d649e11e402f1ca6e4e1a673976144d40ac175750d695bd9e7ea7d3db8f97",
+    "importedAt": "2026-03-12T01:55:46.274Z"
+  }
+]
