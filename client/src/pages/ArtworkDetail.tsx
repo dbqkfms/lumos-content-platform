@@ -37,7 +37,7 @@ function InstallationSimulation({ artwork, accentColor }: { artwork: Artwork; ac
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
 
   const isVertical = (artwork as any).displayType === "Vertical";
-  const videoSrc = (artwork as any).videoSrc as string | undefined;
+  const videoSrc = ((artwork as any).videoSrc || (artwork as any).embedUrl || undefined) as string | undefined;
 
   // 작품-환경 자동 매칭
   const matchResults = useMemo(() => matchArtworkToEnvironments(artwork), [artwork]);
@@ -268,7 +268,7 @@ export default function ArtworkDetail() {
   const accentClass = isStandard ? "text-[#D4A843]" : "text-[#93C5FD]";
   const borderAccent = isStandard ? "border-[#D4A843]/20" : "border-[#93C5FD]/20";
   const btnClass = isStandard ? "btn-brutalist" : "btn-brutalist-blue";
-  const videoSrc = (artwork as any).videoSrc as string | undefined;
+  const videoSrc = ((artwork as any).videoSrc || (artwork as any).embedUrl || undefined) as string | undefined;
 
   const handleShare = () => {
     if (navigator.share) {

@@ -22,8 +22,9 @@ export default function LibraryArtworkCard({
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const accent = artwork.accent === "gold" ? "#D4A843" : "#93C5FD";
-  const isVimeo = isVimeoUrl(artwork.videoSrc);
-  const hasLocalVideo = !!artwork.videoSrc && !isVimeo;
+  const effectiveVideoSrc = artwork.videoSrc || (artwork as any).embedUrl || undefined;
+  const isVimeo = isVimeoUrl(effectiveVideoSrc);
+  const hasLocalVideo = !!effectiveVideoSrc && !isVimeo;
   const [showVimeo, setShowVimeo] = useState(false);
 
   return (
@@ -55,7 +56,7 @@ export default function LibraryArtworkCard({
         {hasLocalVideo ? (
           <video
             ref={videoRef}
-            src={artwork.videoSrc}
+            src={effectiveVideoSrc}
             muted
             loop
             playsInline
@@ -66,7 +67,7 @@ export default function LibraryArtworkCard({
         {/* Vimeo 호버 iframe */}
         {isVimeo && showVimeo ? (
           <iframe
-            src={vimeoAutoplayUrl(artwork.videoSrc!)}
+            src={vimeoAutoplayUrl(effectiveVideoSrc!)}
             allow="autoplay; fullscreen"
             frameBorder={0}
             className="absolute inset-0 h-full w-full opacity-0 transition-opacity duration-300 group-hover:opacity-100"
@@ -95,7 +96,7 @@ export default function LibraryArtworkCard({
             <span className="border border-white/10 bg-black/70 px-2 py-1 font-accent text-[10px] tracking-[0.18em] text-white/80">
               VIMEO
             </span>
-          ) : artwork.videoSrc ? (
+          ) : effectiveVideoSrc ? (
             <span className="flex items-center gap-1 border border-white/10 bg-black/70 px-2 py-1 font-accent text-[10px] tracking-[0.18em] text-white/80">
               <PlayCircle className="h-3 w-3" />
               LOOP
