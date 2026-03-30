@@ -17,8 +17,9 @@ function isVimeoUrl(src?: string) {
 function OpenArtworkCard({ artwork, onClick }: { artwork: LibraryArtwork; onClick: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const accent = artwork.accent === "gold" ? "#D4A843" : "#93C5FD";
-  const isVimeo = isVimeoUrl(artwork.videoSrc);
-  const showHoverVideo = !!artwork.videoSrc && !isVimeo;
+  const effectiveVideoSrc = artwork.videoSrc || (artwork as any).embedUrl || undefined;
+  const isVimeo = isVimeoUrl(effectiveVideoSrc);
+  const showHoverVideo = !!effectiveVideoSrc && !isVimeo;
 
   const handleMouseEnter = () => {
     if (CARD_VIDEO_MODE === "hover" && videoRef.current) {
@@ -50,7 +51,7 @@ function OpenArtworkCard({ artwork, onClick }: { artwork: LibraryArtwork; onClic
         {showHoverVideo && (
           <video
             ref={videoRef}
-            src={artwork.videoSrc}
+            src={effectiveVideoSrc}
             loop
             muted
             playsInline

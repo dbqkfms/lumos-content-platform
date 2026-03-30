@@ -8,8 +8,15 @@ import { deriveCategories } from "@/lib/artworkData";
 
 const CARD_VIDEO_MODE: "hover" | "autoplay" = "hover";
 
+function isVimeoUrl(src?: string) {
+  return !!src && (src.includes("vimeo.com") || src.includes("player.vimeo.com"));
+}
+
 function ArtworkCard({ artwork, onClick }: { artwork: Artwork; onClick: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const effectiveVideoSrc = artwork.videoSrc || (artwork as any).embedUrl || undefined;
+  const isVimeo = isVimeoUrl(effectiveVideoSrc);
+  const showHoverVideo = !!effectiveVideoSrc && !isVimeo;
 
   const handleMouseEnter = () => {
     if (CARD_VIDEO_MODE === "hover" && videoRef.current) {
@@ -38,10 +45,10 @@ function ArtworkCard({ artwork, onClick }: { artwork: Artwork; onClick: () => vo
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           loading="lazy"
         />
-        {artwork.videoSrc && (
+        {showHoverVideo && (
           <video
             ref={videoRef}
-            src={artwork.videoSrc}
+            src={effectiveVideoSrc}
             loop
             muted
             playsInline
