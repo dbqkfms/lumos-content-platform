@@ -44,9 +44,12 @@ def inside_without_links(path, root):
 
 
 def safe_read(path, limit=2 * 1024 * 1024):
-    if path.is_symlink() or not path.is_file() or path.stat().st_size > limit:
+    try:
+        if path.is_symlink() or not path.is_file() or path.stat().st_size > limit:
+            return None
+        data = path.read_bytes()
+    except OSError:
         return None
-    data = path.read_bytes()
     if b'\0' in data:
         return None
     try:
@@ -150,7 +153,7 @@ def bundle_candidate(root, destination):
                 f = d/name
                 if name.startswith('.') or f.suffix not in CODE_SUFFIXES: continue
                 files.append(f)
-    files += [root/n for n in ('package.json', 'pnpm-lock.yaml', 'tsconfig.json', 'vite.config.ts', 'vercel.json') if (root/n).is_file()]
+    files += [root/n for n in ('package.json', 'pnpm-lock.yaml', 'tsconfig.json', 'vite.config.ts', 'vercel.json', 'client/index.html', '.pnpmfile.cjs') if (root/n).is_file()]
     ready = []
     for f in sorted(set(files)):
         data = safe_read(f) if inside_without_links(f, root) else None

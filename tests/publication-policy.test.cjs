@@ -17,8 +17,8 @@ function full(){
  for(const [k,scope] of Object.entries(scopes))r[k]={state:k==='resize'?'supported':'approved',evidence:{artworkId:ctx.artworkId,revision:ctx.revision,scope,referenceId:'ref-123',reviewerId:'reviewer-1',checkedAt:'2026-09-19T12:00:00Z',expiresAt:'2026-09-30T00:00:00Z'}};
  r.license.mode='exclusive-negotiable';return r;
 }
-test('strict TypeScript policy check',()=>{
- const p=ts.createProgram([source],{strict:true,noEmit:true,types:[],skipLibCheck:true,target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS});
+test('strict TypeScript policy check with downlevel target',()=>{
+ const p=ts.createProgram([source],{strict:true,noEmit:true,types:[],skipLibCheck:true,target:ts.ScriptTarget.ES5,lib:["lib.esnext.d.ts"],module:ts.ModuleKind.CommonJS});
  assert.deepEqual(ts.getPreEmitDiagnostics(p).map(d=>ts.flattenDiagnosticMessageText(d.messageText,'\n')),[]);
 });
 for(const [name,patch] of Object.entries({missing:undefined,null:null,array:[],string:'approved',number:1,boolean:true,untrustedFlags:{id:'lumos-one',rightsReviewStatus:'verified',runtime:'120s',accessTier:'open',resizeSupport:true}}))test(`invalid ${name} grants nothing`,()=>{

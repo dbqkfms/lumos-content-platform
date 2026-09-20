@@ -94,7 +94,7 @@ export function evaluatePublication(input: unknown, context: ReviewContext): Pub
       resize: resize === "supported" ? "검토된 범위에서 대응" : resize === "unsupported" ? "리사이즈 미지원" : "리사이즈 조건 협의",
       license: license === "non-exclusive" ? "비독점 조건 협의" : license === "exclusive-negotiable" ? "독점 조건 협의" : "라이선스 조건 협의",
     },
-    reasons: [...new Set(reasons)],
+    reasons: Array.from(new Set(reasons)),
   };
 }
 

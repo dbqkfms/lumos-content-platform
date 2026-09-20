@@ -48,4 +48,12 @@ class Discovery(unittest.TestCase):
   outside=self.root/'private';outside.mkdir();(outside/'project.json').write_text('{"projectId":"prj_secret","orgId":"team_secret"}')
   (self.p/'.vercel').symlink_to(outside,target_is_directory=True)
   c=m.discover([self.p])['candidates'][0];self.assertEqual(c['vercel']['status'],'invalid-or-binary');self.assertNotIn('prj_secret',json.dumps(c))
+ def test_export_keeps_html_entry_and_package_hook(self):
+  self.put('client/index.html','<html><div id="root"></div></html>');self.put('.pnpmfile.cjs','module.exports = {};')
+  dest=self.root/'entry.zip';self.assertTrue(m.bundle_candidate(self.p,dest)['exported'])
+  with zipfile.ZipFile(dest) as z:self.assertIn('client/index.html',z.namelist());self.assertIn('.pnpmfile.cjs',z.namelist())
+ def test_unreadable_file_does_not_crash_scan(self):
+  from unittest.mock import patch
+  with patch.object(pathlib.Path,'read_bytes',side_effect=PermissionError('denied')):
+   self.assertIsNone(m.safe_read(self.p/'package.json'))
 if __name__=='__main__':unittest.main()
