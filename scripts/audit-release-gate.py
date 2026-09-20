@@ -138,6 +138,8 @@ def evaluate(root: Path, expected_revision: str, expected_run: str, now=None):
     if (not isinstance(assets,list) or len(assets) != media.get('total') or
             any(not isinstance(x,dict) or type(x.get('exists')) is not bool or x.get('tracked') not in (True,False,None) for x in (assets or []))):
         issue('invalid-media-entries')
+    elif any(x.get('tracked') is None or type(x.get('tracked')) is not bool for x in assets):
+        issue('media-tracking-not-verified')
     elif (sum(not x['exists'] for x in assets) != media.get('missing') or
           sum(x['exists'] and x.get('tracked') is False for x in assets) != media.get('presentButUntracked')):
         issue('media-counts-mismatch')
@@ -186,7 +188,10 @@ def evaluate(root: Path, expected_revision: str, expected_run: str, now=None):
             final_url = page.get('finalUrl')
             try:
                 parsed = urlsplit(final_url) if isinstance(final_url,str) else None
-                correct_location = parsed is not None and parsed.scheme+'://'+parsed.netloc == expected_origin and (parsed.path.rstrip('/') or '/') == key[0]
+                allowed_paths = {key[0]}
+                if key[0].startswith('/portal/'):
+                    allowed_paths.update(('/login', '/sign-in', '/auth/signin'))
+                correct_location = parsed is not None and parsed.scheme+'://'+parsed.netloc == expected_origin and (parsed.path.rstrip('/') or '/') in allowed_paths
             except ValueError:
                 correct_location = False
             if not correct_location:
@@ -246,12 +251,30 @@ def evaluate(root: Path, expected_revision: str, expected_run: str, now=None):
             missing=list((counted(b['fields'])-counted(a['fields'])).elements())
             lost=sorted(set(b['policyPaths'])-set(a['policyPaths']))
             if missing or lost:
-                issue('inquiry-form-regression',viewport=width,missingFields=[json.loads(x) for x in missing],missingPolicyPaths=lost)
+                before_kinds=Counter(f['kind'] for f in b['fields'])
+                after_kinds=Counter(f['kind'] for f in a['fields'])
+                issue('inquiry-form-regression',viewport=width,beforeFieldCount=len(b['fields']),afterFieldCount=len(a['fields']),
+                      missingFieldKinds=dict(before_kinds-after_kinds),
+                      missingOrChangedFieldSignatures=[json.loads(x) for x in missing],missingPolicyPaths=lost)
 
     for route,width in sorted(expected_states):
         b=page_maps['live'].get((route,width),{})
         a=page_maps['review'].get((route,width),{})
         delta=compare_contract(b.get('contract'),a.get('contract'))
+        if route.startswith('/portal/'):
+            def access_path(page):
+                try:
+                    v=page.get('finalUrl');u=urlsplit(v) if isinstance(v,str) else None
+                    return (u.path.rstrip('/') or '/') if u else None
+                except ValueError:
+                    return None
+            before_path,after_path=access_path(b),access_path(a)
+            delta['observedAccessFlow']={'beforePath':before_path,'afterPath':after_path,
+                'scope':'unauthenticated-client-navigation-only-not-backend-authorization'}
+            if before_path is None or after_path is None:
+                issue('portal-access-flow-unverified',route=route,viewport=width)
+            elif before_path != after_path:
+                issue('portal-access-flow-regression',route=route,viewport=width,beforePath=before_path,afterPath=after_path)
         comparisons.append({'route':route,'viewport':width,**delta})
         if delta['status'] != 'same-observed-state':
             issue('deployment-ui-difference' if delta['status']=='changed' else 'deployment-ui-comparison-unknown',route=route,viewport=width)

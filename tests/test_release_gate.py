@@ -201,4 +201,30 @@ class GateTests(unittest.TestCase):
             with self.subTest(value=v):
                 self.files['review-browser/browser-report.json']['pages']=v;self.assertFalse(self.evaluate()['automatedGatePassed'])
 
+    def test_known_login_redirect_preserved_is_not_a_broken_portal(self):
+        for kind,origin in [('live','https://lumos-v2-preview.vercel.app'),('review','http://127.0.0.1:4173')]:
+            for route in ('/portal/artist','/portal/admin'):
+                for width in gate.WIDTHS:
+                    self.page(route,width,kind)['finalUrl']=origin+'/login'
+        self.assertTrue(self.evaluate()['automatedGatePassed'])
+    def test_login_redirect_replaced_with_open_portal_blocks_migration(self):
+        self.page('/portal/admin',kind='live')['finalUrl']='https://lumos-v2-preview.vercel.app/login'
+        r=self.blocked('portal-access-flow-regression')
+        b=next(x for x in r['blockers'] if x['code']=='portal-access-flow-regression')
+        self.assertEqual((b['beforePath'],b['afterPath']),('/login','/portal/admin'))
+        self.assertNotIn('browser-final-location-mismatch',[x['code'] for x in r['blockers']])
+    def test_changed_login_destination_requires_review(self):
+        self.page('/portal/admin',kind='live')['finalUrl']='https://lumos-v2-preview.vercel.app/login'
+        self.page('/portal/admin')['finalUrl']='http://127.0.0.1:4173/auth/signin'
+        self.blocked('portal-access-flow-regression')
+    def test_unknown_media_tracking_is_not_reproducibility_evidence(self):
+        self.files['audits/media-report.json']['assets'][0]['tracked']=None
+        self.blocked('media-tracking-not-verified')
+    def test_form_kind_loss_is_distinct_from_changed_label(self):
+        self.row('inquiry-form-contract')['fields']=[{'kind':'email','label':'EMAIL','required':True}]
+        r=self.blocked('inquiry-form-regression');b=next(x for x in r['blockers'] if x['code']=='inquiry-form-regression')
+        self.assertEqual(b['missingFieldKinds'],{'checkbox':1})
+        self.assertEqual(len(b['missingOrChangedFieldSignatures']),2)
+        self.assertEqual((b['beforeFieldCount'],b['afterFieldCount']),(2,1))
+
 if __name__=='__main__':unittest.main()
