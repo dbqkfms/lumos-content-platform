@@ -1,0 +1,14 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');
+const {metadataRevision,auditPublication}=require('../scripts/audit-publication-policy.cjs');
+const one={id:'lumos-a',title:'원문',image:'/image.png',tags:['한국','호텔']};
+const catalog={records:[one],rejectedRecords:[{id:'lumos-b',title:'확인필요',reason:'missing-thumbnail'}]};
+test('audit includes excluded media rows, not only visible cards',()=>assert.equal(auditPublication(catalog).total,2));
+test('audit never grants permissions from an Open label',()=>{const c={records:[{...one,accessTier:'open'}],rejectedRecords:[]};assert.equal(auditPublication(c).policyEligible,0);});
+test('audit has no publication or release side effect',()=>{const r=auditPublication(catalog);assert.equal(r.automaticallyPublished,0);assert.equal(r.releaseReady,false);});
+test('metadata key order does not change revision',()=>assert.equal(metadataRevision(one),metadataRevision({tags:one.tags,image:one.image,title:one.title,id:one.id})));
+test('metadata or media reference change invalidates prior binding',()=>assert.notEqual(metadataRevision(one),metadataRevision({...one,image:'/changed.png'})));
+test('metadata hash is never represented as actual media byte hash',()=>assert.equal(auditPublication(catalog).records[0].revisionEvidence,'metadata-only-not-media-bytes'));
+test('duplicate reviews rejected instead of choosing one',()=>assert.throws(()=>auditPublication(catalog,[{artworkId:'lumos-a'},{artworkId:'lumos-a'}]),/duplicate/));
+test('review for unknown artwork rejected',()=>assert.throws(()=>auditPublication(catalog,[{artworkId:'other'}]),/orphan/));
+test('duplicate catalogue ID rejected',()=>assert.throws(()=>auditPublication({records:[one,one],rejectedRecords:[]}),/duplicate/));
+test('input catalogue not mutated',()=>{const before=JSON.stringify(catalog);auditPublication(catalog);assert.equal(JSON.stringify(catalog),before);});

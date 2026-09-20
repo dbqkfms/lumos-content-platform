@@ -93,8 +93,17 @@ jobs:
             printf '%s=%s\n' "$cmd" "$?" | tee -a "$RUNNER_TEMP/lumos-evidence/exit-codes.txt"
             tail -n 55 "$RUNNER_TEMP/lumos-evidence/$safe.log"
           done
+          node --test tests/publication-policy.test.cjs tests/publication-audit.test.cjs > "$RUNNER_TEMP/lumos-evidence/test-round2.log" 2>&1
+          printf 'test:round2=%s\n' "$?" >> "$RUNNER_TEMP/lumos-evidence/exit-codes.txt"
+          tail -n 15 "$RUNNER_TEMP/lumos-evidence/test-round2.log"
           LUMOS_LIVE_CATALOG="$RUNNER_TEMP/lumos-evidence/deployment/catalog-response.txt" node scripts/audit-catalog.cjs > "$RUNNER_TEMP/lumos-evidence/catalog.log" 2>&1
           printf 'catalog=%s\n' "$?" >> "$RUNNER_TEMP/lumos-evidence/exit-codes.txt"
+          python3 -m unittest discover -s tests -p 'test_*.py' -v > "$RUNNER_TEMP/lumos-evidence/python-tests.log" 2>&1
+          printf 'python-tests=%s\n' "$?" >> "$RUNNER_TEMP/lumos-evidence/exit-codes.txt"
+          tail -n 8 "$RUNNER_TEMP/lumos-evidence/python-tests.log"
+          node scripts/audit-publication-policy.cjs > "$RUNNER_TEMP/lumos-evidence/publication-policy.log" 2>&1
+          printf 'publication-policy=%s\n' "$?" >> "$RUNNER_TEMP/lumos-evidence/exit-codes.txt"
+          cat "$RUNNER_TEMP/lumos-evidence/publication-policy.log"
           mkdir -p "$RUNNER_TEMP/lumos-evidence/audits"
           cp dist/audits/*.json "$RUNNER_TEMP/lumos-evidence/audits/" 2>/dev/null || true
           cp dist/public/build-info.json "$RUNNER_TEMP/lumos-evidence/" 2>/dev/null || true
@@ -128,17 +137,13 @@ jobs:
           trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
           for i in $(seq 1 20); do curl --silent --fail http://127.0.0.1:4173/ > /dev/null && break; sleep 1; done
           "$RUNNER_TEMP/lumos-browser/bin/python" scripts/browser-audit.py --origin http://127.0.0.1:4173 --output "$RUNNER_TEMP/lumos-evidence/review-browser"
-      - name: 누락 공개 이미지 원본 백업 (사이트 변경 없음)
-        if: steps.install.outcome == 'success'
-        continue-on-error: true
-        run: python3 scripts/recover-public-images.py --report "$RUNNER_TEMP/lumos-evidence/deployment/media-http.json" --output "$RUNNER_TEMP/lumos-evidence/recovered-images"
       - name: 진단 증거 업로드
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: lumos-verification-${{ github.sha }}
           path: ${{ runner.temp }}/lumos-evidence/
-          retention-days: 7
+          retention-days: 14
           if-no-files-found: error
       - name: 실패를 성공으로 처리하지 않기
         if: always()
@@ -148,5 +153,5 @@ jobs:
         run: |
           test "$INSTALL_OUTCOME" = success || exit 1
           test -f "$RUNNER_TEMP/lumos-evidence/exit-codes.txt" || exit 1
-          test "$(wc -l < "$RUNNER_TEMP/lumos-evidence/exit-codes.txt")" -eq 5 || exit 1
+          test "$(wc -l < "$RUNNER_TEMP/lumos-evidence/exit-codes.txt")" -eq 8 || exit 1
           if grep -Eq '=[1-9][0-9]*$' "$RUNNER_TEMP/lumos-evidence/exit-codes.txt"; then exit 1; fi
