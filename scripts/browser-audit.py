@@ -3,7 +3,8 @@ Run in a disposable browser: python scripts/browser-audit.py --origin URL --outp
 Screenshots and measured DOM are evidence, not a claim of tested licensing/backend security.
 """
 from __future__ import annotations
-import argparse, json, pathlib, re, subprocess
+import argparse, json, pathlib, re, subprocess, os
+from datetime import datetime, timezone
 from playwright.sync_api import sync_playwright
 
 ROUTES = ['/', '/open', '/originals', '/creator-works', '/standard', '/local',
@@ -25,12 +26,39 @@ STATE_JS = """() => ({
  iframes:[...document.querySelectorAll('iframe')].map(x=>({src:x.src,title:x.title})),
  metadata:[...document.head.querySelectorAll('meta[name],meta[property]')].map(x=>({key:x.name||x.getAttribute('property'),content:x.content})),
  cards:document.querySelectorAll('.gallery-card').length,
+ contract:(() => {
+   const path = value => { if (!value) return null; try { const u=new URL(value,location.href); return u.origin===location.origin ? u.pathname : u.origin+u.pathname; } catch { return null; } };
+   const policy = [...document.querySelectorAll('a[href]')].map(a=>path(a.href)).filter(v=>v && /(?:privacy|terms)(?:[/._-]|$)/i.test(v));
+   return {schemaVersion:1,scope:'rendered-dom-initial-state',
+     navigationPaths:[...new Set([...document.querySelectorAll('header a[href],nav a[href]')].map(a=>path(a.href)).filter(v=>v && v.startsWith('/')))].sort(),
+     policyPaths:[...new Set(policy)].sort(),
+     cards:[...document.querySelectorAll('.gallery-card')].map(card=>({
+       artworkId:card.getAttribute('data-artwork-id'),
+       title:(card.querySelector('h3,h4')?.innerText || card.getAttribute('aria-label') || '').trim(),
+       posterPath:path(card.querySelector('img')?.currentSrc || card.querySelector('img')?.src || '')
+     }))};
+ })(),
  bodyText:document.body.innerText
 })"""
 
+FORM_JS = r"""() => {
+ const root=document.querySelector('[role=dialog]');
+ if(!root) return {fields:[],policyPaths:[]};
+ const policyPaths=[...root.querySelectorAll('a[href]')].map(a=>{const u=new URL(a.href,location.href);return u.origin===location.origin?u.pathname:u.origin+u.pathname;}).filter(v=>/(?:privacy|terms)(?:[/._-]|$)/i.test(v));
+ const fields=[...root.querySelectorAll('input,textarea,select')].filter(x=>x.type!=='hidden').map(x=>({
+   kind:x.tagName==='TEXTAREA'?'textarea':x.tagName==='SELECT'?'select':x.type,
+   label:(x.getAttribute('aria-label') || [...(x.labels||[])].map(l=>l.innerText).join(' ') || x.getAttribute('placeholder') || x.getAttribute('name') || '').replace(/\s+/g,' ').trim(),
+   required:!!x.required
+ }));
+ return {fields,policyPaths:[...new Set(policyPaths)].sort()};
+}"""
+
+def stamp():
+    return datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00','Z')
+
 def run(origin: str, output: pathlib.Path, channel: str | None):
     output.mkdir(parents=True,exist_ok=True)
-    report={'origin':origin, 'scope':'disposable-readonly-browser; no real inquiry delivery; no authentication bypass',
+    report={'schemaVersion':2,'auditRevision':os.environ.get('GITHUB_SHA',os.environ.get('LUMOS_AUDIT_REVISION')),'auditRunId':os.environ.get('GITHUB_RUN_ID',os.environ.get('LUMOS_AUDIT_RUN_ID')),'startedAt':stamp(),'requestPolicy':{'mutations':'blocked','serviceWorkers':'blocked','webSockets':'blocked'},'origin':origin, 'scope':'disposable-readonly-browser; no real inquiry delivery; no authentication bypass',
             'viewports':[1440,390], 'pages':[], 'interactions':[], 'blockedWrites':[]}
     report['fontFallback'] = subprocess.run(['fc-match','Noto Sans CJK KR'],capture_output=True,text=True).stdout.strip()
     with sync_playwright() as p:
@@ -40,7 +68,8 @@ def run(origin: str, output: pathlib.Path, channel: str | None):
         report['browserVersion']=browser.version
         for width in [1440,390]:
             context=browser.new_context(viewport={'width':width,'height':900 if width==1440 else 844},
-                                       device_scale_factor=1, is_mobile=width==390, has_touch=width==390)
+                                       device_scale_factor=1, is_mobile=width==390, has_touch=width==390, service_workers='block')
+            context.route_web_socket('**/*', lambda socket: socket.close())
             def guard(route):
                 request=route.request
                 if request.method not in ['GET','HEAD','OPTIONS']:
@@ -66,7 +95,7 @@ def run(origin: str, output: pathlib.Path, channel: str | None):
                     state=page.evaluate(STATE_JS)
                     (output/f'{name}.json').write_text(json.dumps(state,ensure_ascii=False,indent=2))
                     (output/f'{name}.txt').write_text(state['bodyText'])
-                    record.update({k:state[k] for k in ['title','headings','width','scrollWidth','cards','videos','iframes']})
+                    record.update({k:state[k] for k in ['title','headings','width','scrollWidth','cards','videos','iframes','contract']})
                     record['horizontalOverflow']=state['scrollWidth']>width+2
                     record['failedLoadedImages']=[x for x in state['images'] if x['complete'] and x['width']==0]
                     page.screenshot(path=str(output/f'{name}.png'),animations='disabled',timeout=15000)
@@ -108,6 +137,7 @@ def run(origin: str, output: pathlib.Path, channel: str | None):
                     page.wait_for_timeout(300)
                     fields=[field.input_value() for field in page.locator('textarea').all()]
                     dialog=page.locator('[role=dialog]')
+                    report['interactions'].append({'viewport':width,'name':'inquiry-form-contract',**page.evaluate(FORM_JS)})
                     report['interactions'].append({'viewport':width,'name':'artwork-inquiry-prefill','title':detail_title,'messages':fields,'titlePresent':bool(detail_title and any(detail_title in t for t in fields)),'dialogRole':dialog.count()})
                     page.screenshot(path=str(output/f'inquiry-{width}.png'),animations='disabled')
                     if dialog.count():
@@ -135,6 +165,7 @@ def run(origin: str, output: pathlib.Path, channel: str | None):
                 report['interactions'].append({'viewport':width,'name':'interaction-audit','error':str(exc)})
             page.close();context.close()
         browser.close()
+    report['completedAt']=stamp()
     (output/'browser-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
     print(json.dumps({'origin':origin,'pages':len(report['pages']),'auditErrors':sum('auditError' in x for x in report['pages']),
                       'pageErrors':sum(bool(x['pageErrors']) for x in report['pages']),

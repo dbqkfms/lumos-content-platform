@@ -29,7 +29,7 @@ jobs:
           out=pathlib.Path(os.environ['RUNNER_TEMP'])/'lumos-evidence'
           head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
           base='30c8316d929d58b56f9127bf1da4f6a9ea6cf159'
-          (out/'revision.json').write_text(json.dumps({'head':head,'base':base},indent=2))
+          (out/'revision.json').write_text(json.dumps({'head':head,'base':base,'runId':os.environ['GITHUB_RUN_ID']},indent=2))
           allowed={'.ts','.tsx','.js','.jsx','.mjs','.cjs','.json','.yaml','.yml','.css','.html','.md','.patch','.toml','.py'}
           for label,ref in [('review',head),('baseline',base)]:
             raw=subprocess.check_output(['git','ls-tree','-rlz',ref]);records=[]
@@ -137,6 +137,13 @@ jobs:
           trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
           for i in $(seq 1 20); do curl --silent --fail http://127.0.0.1:4173/ > /dev/null && break; sleep 1; done
           "$RUNNER_TEMP/lumos-browser/bin/python" scripts/browser-audit.py --origin http://127.0.0.1:4173 --output "$RUNNER_TEMP/lumos-evidence/review-browser"
+      - name: 배포 호환성과 핵심 동작을 합산 검사
+        id: migration_gate
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          python3 scripts/audit-release-gate.py --evidence "$RUNNER_TEMP/lumos-evidence" --revision "$GITHUB_SHA" --run-id "$GITHUB_RUN_ID" --output "$RUNNER_TEMP/lumos-evidence/release-gate.json"
       - name: 진단 증거 업로드
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -150,8 +157,7 @@ jobs:
         shell: bash
         env:
           INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          GATE_OUTCOME: ${{ steps.migration_gate.outcome }}
         run: |
           test "$INSTALL_OUTCOME" = success || exit 1
-          test -f "$RUNNER_TEMP/lumos-evidence/exit-codes.txt" || exit 1
-          test "$(wc -l < "$RUNNER_TEMP/lumos-evidence/exit-codes.txt")" -eq 8 || exit 1
-          if grep -Eq '=[1-9][0-9]*$' "$RUNNER_TEMP/lumos-evidence/exit-codes.txt"; then exit 1; fi
+          test "$GATE_OUTCOME" = success || exit 1
