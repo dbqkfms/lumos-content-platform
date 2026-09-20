@@ -58,11 +58,27 @@ export function writeBuildInfo({ root, env = process.env, now = new Date() }) {
     }
   };
   walk(assetRoot);
+  // Public JSON changes can alter the live catalogue without changing JS/CSS.
+  info.dataFiles = {};
+  const dataRoot = path.join(out, 'data');
+  const walkData = (dir) => {
+    if (!fs.existsSync(dir)) return;
+    for (const item of fs.readdirSync(dir, { withFileTypes: true }).sort((a,b) => a.name.localeCompare(b.name))) {
+      const file = path.join(dir, item.name);
+      if (item.isDirectory()) walkData(file);
+      else if (item.isFile() && item.name.endsWith('.json')) {
+        info.dataFiles[path.relative(out, file).split(path.sep).join('/')] = sha256(fs.readFileSync(file));
+      }
+    }
+  };
+  walkData(dataRoot);
+  info.catalogFingerprint = sha256(JSON.stringify(info.dataFiles));
   info.bundleFingerprint = sha256(JSON.stringify(info.bundles));
-  html = html.replace(/\s*<meta\b[^>]*name=["']lumos:(?:commit|bundle|dirty)["'][^>]*>/gi, '');
+  html = html.replace(/\s*<meta\b[^>]*name=["']lumos:(?:commit|bundle|catalog|dirty)["'][^>]*>/gi, '');
   const tags = [
     ['commit', info.commit || 'unknown'],
     ['bundle', info.bundleFingerprint],
+    ['catalog', info.catalogFingerprint],
     ['dirty', info.dirty === null ? 'unknown' : String(info.dirty)],
   ].map(([name,value]) => `    <meta name="lumos:${name}" content="${escape(value)}" />`).join('\n');
   html = html.replace(/<\/head\s*>/i, `${tags}\n  </head>`);

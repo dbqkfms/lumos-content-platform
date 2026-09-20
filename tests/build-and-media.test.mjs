@@ -61,3 +61,15 @@ test('present but untracked media is a reproducibility failure', () => fixture((
   put('client/src/Home.tsx','const a="/videos/local.mp4";');put('client/public/videos/local.mp4','media');
   assert.equal(auditMedia(root).presentButUntracked,1);
 }));
+
+test('catalogue fingerprint changes independently from unchanged JS bundles', () => fixture((root,put) => {
+  put('dist/public/index.html',html);put('dist/public/assets/main.js','same');
+  put('dist/public/data/catalog.json','[{"id":"a","title":"before"}]');
+  const a=writeBuildInfo({root,env:{}});
+  put('dist/public/data/catalog.json','[{"id":"a","title":"after"}]');
+  const b=writeBuildInfo({root,env:{}});
+  assert.equal(a.bundleFingerprint,b.bundleFingerprint);
+  assert.notEqual(a.catalogFingerprint,b.catalogFingerprint);
+  assert.equal(Object.keys(b.dataFiles).length,1);
+  assert.equal(fs.readFileSync(path.join(root,'dist/public/index.html'),'utf8').match(/name="lumos:catalog"/g).length,1);
+}));

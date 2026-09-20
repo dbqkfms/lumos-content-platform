@@ -12,7 +12,8 @@
     "format": "prettier --write .",
     "build:info": "node scripts/write-build-info.mjs",
     "audit:media": "node scripts/audit-media.mjs",
-    "test:round1": "node --test tests/catalog-rules.test.cjs tests/build-and-media.test.mjs"
+    "test:round1": "node --test tests/catalog-rules.test.cjs tests/build-and-media.test.mjs tests/presentation.test.cjs",
+    "audit:catalog": "node scripts/audit-catalog.cjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

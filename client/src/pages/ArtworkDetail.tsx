@@ -18,13 +18,12 @@ import Header from "@/components/Header";
 import FloatingCTA from "@/components/FloatingCTA";
 import { useMarketplace, Artwork } from "@/contexts/MarketplaceContext";
 import { toast } from "sonner";
+import { resolveWorld } from "@/lib/catalogRules";
+import { selectArtworkView } from "@/lib/catalogPresentation";
+import { isVimeoUrl, vimeoEmbedUrl } from "@/lib/videoUrls";
 
 type PlayerTab = "video" | "simulation";
 
-/** Vimeo embed URL 여부 판별 */
-function isVimeoUrl(url: string): boolean {
-  return url.includes("vimeo.com");
-}
 
 // ─── Installation Simulation v3 ─────────────────────────────────────────────
 // 15개 환경 × 자동 매칭 엔진 + LED 스크린 임베딩
@@ -80,7 +79,7 @@ function InstallationSimulation({ artwork, accentColor }: { artwork: Artwork; ac
               <video
                 ref={el => { videoRefs.current[idx] = el; }}
                 src={videoSrc}
-                muted loop playsInline
+                autoPlay muted loop playsInline preload="none"
                 style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
               />
             ) : (
@@ -134,13 +133,13 @@ function InstallationSimulation({ artwork, accentColor }: { artwork: Artwork; ac
       {/* 매칭 결과 헤더 */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <p className="font-accent text-[10px] tracking-widest text-gray-500 mb-1">AI 공간 매칭</p>
+          <p className="font-accent text-[10px] tracking-widest text-gray-500 mb-1">태그 기반 공간 추천</p>
           <p className="text-sm text-gray-400">
             이 작품에 가장 어울리는 <span style={{ color: accentColor }}>{matchResults.filter(m => m.score > 20).length}개</span> 공간을 추천합니다
           </p>
         </div>
         <button
-          onClick={() => setShowAll(!showAll)}
+          onClick={() => { setExpandedScene(null); setShowAll((current) => !current); }}
           className="font-accent text-[10px] tracking-widest px-4 py-2 border border-white/10 text-gray-500 hover:text-white hover:border-white/20 transition-all"
         >
           {showAll ? `추천 공간만 보기` : `전체 ${ENVIRONMENTS.length}개 보기`}
@@ -219,27 +218,21 @@ function InstallationSimulation({ artwork, accentColor }: { artwork: Artwork; ac
 export default function ArtworkDetail() {
   const [, params] = useRoute("/artwork/:id");
   const [, setLocation] = useLocation();
-  const { artworks } = useMarketplace();
-  const [artwork, setArtwork] = useState<Artwork | null>(null);
-  const [relatedArtworks, setRelatedArtworks] = useState<Artwork[]>([]);
+  const { artworks, loading } = useMarketplace();
+  const view = selectArtworkView(artworks, params?.id, loading);
+  const artwork = view.kind === "ready" ? view.artwork : null;
+  const relatedArtworks = useMemo(() => artwork
+    ? artworks.filter((item) => item.category === artwork.category && item.id !== artwork.id).slice(0, 4)
+    : [], [artwork, artworks]);
   const [descExpanded, setDescExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<PlayerTab>("video");
   const [showroomMode, setShowroomMode] = useState(false);
 
   useEffect(() => {
-    if (!params?.id) return;
-    const found = artworks.find((art) => art.id === params.id);
-    if (found) {
-      setArtwork(found);
-      const related = artworks
-        .filter((art) => art.category === found.category && art.id !== found.id)
-        .slice(0, 4);
-      setRelatedArtworks(related);
-    }
     setActiveTab("video");
     setDescExpanded(false);
     setShowroomMode(false);
-  }, [params?.id, artworks]);
+  }, [params?.id]);
 
   // ESC key to exit showroom
   useEffect(() => {
@@ -249,6 +242,10 @@ export default function ArtworkDetail() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
+
+  if (view.kind === "loading") {
+    return <div className="min-h-screen flex items-center justify-center text-white" role="status" aria-busy="true">작품 정보를 불러오는 중입니다.</div>;
+  }
 
   if (!artwork) {
     return (
@@ -263,7 +260,7 @@ export default function ArtworkDetail() {
     );
   }
 
-  const isStandard = artwork.id.startsWith("standard-");
+  const isStandard = resolveWorld(artwork) === "standard";
   const accentColor = isStandard ? "#D4A843" : "#93C5FD";
   const accentClass = isStandard ? "text-[#D4A843]" : "text-[#93C5FD]";
   const borderAccent = isStandard ? "border-[#D4A843]/20" : "border-[#93C5FD]/20";
@@ -280,7 +277,7 @@ export default function ArtworkDetail() {
   };
 
   const handleContactClick = () => {
-    window.dispatchEvent(new CustomEvent("open-contact", { detail: { artworkName: artwork.title } }));
+    window.dispatchEvent(new CustomEvent("open-contact", { detail: { artworkId: artwork.id, artworkTitle: artwork.title, prefill: artwork.title } }));
   };
 
   // ─── Showroom Mode ─────────────────────────────────────────────────────
@@ -299,7 +296,8 @@ export default function ArtworkDetail() {
           {videoSrc ? (
             isVimeoUrl(videoSrc) ? (
               <iframe
-                src={`${videoSrc}?autoplay=1&loop=1`}
+                src={vimeoEmbedUrl(videoSrc, { autoplay: true, loop: true, muted: true })}
+                title={`${artwork.title} 영상`}
                 className="w-full h-full"
                 allow="autoplay; fullscreen"
                 frameBorder={0}
@@ -340,7 +338,8 @@ export default function ArtworkDetail() {
           {videoSrc ? (
             isVimeoUrl(videoSrc) ? (
               <iframe
-                src={`${videoSrc}?autoplay=1&loop=1&muted=1`}
+                src={vimeoEmbedUrl(videoSrc, { autoplay: true, loop: true, muted: true })}
+                title={`${artwork.title} 영상`}
                 className="w-full h-full bg-[#030303]"
                 allow="autoplay; fullscreen"
                 frameBorder={0}
@@ -491,7 +490,8 @@ export default function ArtworkDetail() {
               {videoSrc ? (
                 isVimeoUrl(videoSrc) ? (
                   <iframe
-                    src={`${videoSrc}?autoplay=1&loop=1`}
+                    src={vimeoEmbedUrl(videoSrc, { autoplay: true, loop: true, muted: true })}
+                title={`${artwork.title} 영상`}
                     className="w-full"
                     style={{ height: "70vh", border: "none" }}
                     allow="autoplay; fullscreen"
@@ -516,7 +516,7 @@ export default function ArtworkDetail() {
               )}
             </div>
           ) : (
-            <InstallationSimulation artwork={artwork} accentColor={accentColor} />
+            <InstallationSimulation key={artwork.id} artwork={artwork} accentColor={accentColor} />
           )}
         </div>
       </section>

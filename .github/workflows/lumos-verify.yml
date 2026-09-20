@@ -2,7 +2,7 @@ name: LUMOS 검토본 검증
 on:
   push:
     branches: [fix/lumos-round1-data-trace-20260920]
-    paths: ['client/**', 'server/**', 'shared/**', 'scripts/**', 'tests/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig.json', 'vite.config.ts', '.pnpmfile.cjs', '.npmrc', '.github/workflows/lumos-verify.yml']
+    paths: ['client/**', 'server/**', 'shared/**', 'scripts/**', 'tests/**', 'package.json', 'pnpm-lock.yaml', 'tsconfig.json', 'vite.config.ts', 'vercel.json', '.pnpmfile.cjs', '.npmrc', '.github/workflows/lumos-verify.yml']
 permissions:
   contents: read
 concurrency:
@@ -108,6 +108,8 @@ jobs:
         continue-on-error: true
         shell: bash
         run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y fonts-noto-cjk
           python3 -m venv "$RUNNER_TEMP/lumos-browser"
           "$RUNNER_TEMP/lumos-browser/bin/pip" install playwright==1.57.0
           "$RUNNER_TEMP/lumos-browser/bin/python" -m playwright install chromium
@@ -126,6 +128,10 @@ jobs:
           trap 'kill "$preview_pid" 2>/dev/null || true' EXIT
           for i in $(seq 1 20); do curl --silent --fail http://127.0.0.1:4173/ > /dev/null && break; sleep 1; done
           "$RUNNER_TEMP/lumos-browser/bin/python" scripts/browser-audit.py --origin http://127.0.0.1:4173 --output "$RUNNER_TEMP/lumos-evidence/review-browser"
+      - name: 누락 공개 이미지 원본 백업 (사이트 변경 없음)
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        run: python3 scripts/recover-public-images.py --report "$RUNNER_TEMP/lumos-evidence/deployment/media-http.json" --output "$RUNNER_TEMP/lumos-evidence/recovered-images"
       - name: 진단 증거 업로드
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

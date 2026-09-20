@@ -3,7 +3,7 @@ Run in a disposable browser: python scripts/browser-audit.py --origin URL --outp
 Screenshots and measured DOM are evidence, not a claim of tested licensing/backend security.
 """
 from __future__ import annotations
-import argparse, json, pathlib, re
+import argparse, json, pathlib, re, subprocess
 from playwright.sync_api import sync_playwright
 
 ROUTES = ['/', '/open', '/originals', '/creator-works', '/standard', '/local',
@@ -32,6 +32,7 @@ def run(origin: str, output: pathlib.Path, channel: str | None):
     output.mkdir(parents=True,exist_ok=True)
     report={'origin':origin, 'scope':'disposable-readonly-browser; no real inquiry delivery; no authentication bypass',
             'viewports':[1440,390], 'pages':[], 'interactions':[], 'blockedWrites':[]}
+    report['fontFallback'] = subprocess.run(['fc-match','Noto Sans CJK KR'],capture_output=True,text=True).stdout.strip()
     with sync_playwright() as p:
         options={'headless':True}
         if channel: options['channel']=channel
@@ -49,15 +50,17 @@ def run(origin: str, output: pathlib.Path, channel: str | None):
             context.route('**/*',guard)
             for route in ROUTES:
                 page=context.new_page()
-                errors=[]; failed=[]
+                errors=[]; failed=[]; transport=[]
                 page.on('pageerror',lambda error, log=errors: log.append(str(error)))
                 page.on('response',lambda response, log=failed: log.append({'status':response.status,'url':response.url}) if response.status>=400 else None)
+                page.on('requestfailed',lambda request,log=transport: log.append({'url':request.url,'failure':request.failure}))
                 record={'route':route,'viewport':width}
                 name=(route.strip('/').replace('/','_') or 'home')+f'-{width}'
                 try:
                     response=page.goto(origin.rstrip('/')+route,wait_until='domcontentloaded',timeout=25000)
                     record['httpStatus']=response.status if response else None
                     page.wait_for_function("document.body && document.body.innerText.trim().length>30", timeout=15000)
+                    page.evaluate('async () => { await Promise.race([document.fonts.ready, new Promise(r=>setTimeout(r,5000))]); }')
                     page.wait_for_timeout(1500)
                     record['finalUrl']=page.url
                     state=page.evaluate(STATE_JS)
@@ -73,6 +76,7 @@ def run(origin: str, output: pathlib.Path, channel: str | None):
                     record['auditError']=str(exc)
                 record['pageErrors']=errors
                 record['httpErrors']=failed
+                record['transportErrors']=transport
                 report['pages'].append(record)
                 page.close()
             page=context.new_page()
@@ -89,18 +93,42 @@ def run(origin: str, output: pathlib.Path, channel: str | None):
                 first=page.locator('.gallery-card').first
                 card_title=first.locator('h3').inner_text()
                 first.click();page.wait_for_timeout(600)
+                page.screenshot(path=str(output/f'selected-detail-{width}.png'),animations='disabled')
                 detail_title=page.locator('h1').first.inner_text() if page.locator('h1').count() else None
                 report['interactions'].append({'viewport':width,'name':'card-to-detail-title','card':card_title,'detail':detail_title,'equal':card_title==detail_title,'url':page.url})
                 inquiry=page.get_by_role('button',name=re.compile('이 작품.*문의')).first
                 if inquiry.count():
-                    inquiry.click();page.wait_for_timeout(300)
+                    primary_ok=True
+                    try: inquiry.click(timeout=5000)
+                    except Exception as exc:
+                        primary_ok=False
+                        report['interactions'].append({'viewport':width,'name':'primary-detail-inquiry','clickable':False,'error':str(exc)})
+                        page.get_by_role('button',name=re.compile('이 작품.*문의')).last.click(timeout=5000)
+                    if primary_ok:report['interactions'].append({'viewport':width,'name':'primary-detail-inquiry','clickable':True})
+                    page.wait_for_timeout(300)
                     fields=[field.input_value() for field in page.locator('textarea').all()]
                     dialog=page.locator('[role=dialog]')
                     report['interactions'].append({'viewport':width,'name':'artwork-inquiry-prefill','title':detail_title,'messages':fields,'titlePresent':bool(detail_title and any(detail_title in t for t in fields)),'dialogRole':dialog.count()})
                     page.screenshot(path=str(output/f'inquiry-{width}.png'),animations='disabled')
-                    page.keyboard.press('Escape');page.wait_for_timeout(200)
+                    if dialog.count():
+                        page.keyboard.press('Tab');page.keyboard.press('Shift+Tab')
+                        report['interactions'].append({'viewport':width,'name':'dialog-focus-contained','contained':page.evaluate("!!document.querySelector('[role=dialog]')?.contains(document.activeElement)")})
+                    if origin.startswith('http://127.0.0.1') and dialog.count():
+                        request_bodies=[]
+                        def mocked_failure(route):
+                            request_bodies.append(route.request.post_data_json)
+                            route.fulfill(status=503,content_type='application/json',body='{"error":"synthetic-test"}')
+                        context.route('https://formspree.io/f/*',mocked_failure)
+                        page.get_by_placeholder('담당자 이름').fill('LUMOS 자동검증')
+                        page.get_by_placeholder('name@company.com').fill('qa@example.invalid')
+                        page.get_by_role('button',name='Send Inquiry').click(timeout=5000)
+                        page.wait_for_timeout(600)
+                        retained=page.get_by_placeholder('담당자 이름').input_value()=='LUMOS 자동검증'
+                        report['interactions'].append({'viewport':width,'name':'synthetic-inquiry-failure-preserves-input','synthetic':True,'retained':retained,'requests':request_bodies})
+                        context.unroute('https://formspree.io/f/*',mocked_failure)
+                    page.keyboard.press('Escape');page.wait_for_timeout(300)
                     report['interactions'].append({'viewport':width,'name':'inquiry-escape','textareasVisible':page.locator('textarea:visible').count()})
-                page.evaluate("history.pushState({}, '', '/artwork/audit-id-does-not-exist')")
+                page.evaluate("history.pushState({}, '', '/artwork/audit-id-does-not-exist'); window.dispatchEvent(new PopStateEvent('popstate'));")
                 page.wait_for_timeout(450)
                 report['interactions'].append({'viewport':width,'name':'nonexistent-spa-artwork','bodyText':page.locator('body').inner_text()[:1000],'h1':page.locator('h1').all_inner_texts()})
             except Exception as exc:
