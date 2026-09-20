@@ -1,0 +1,135 @@
+name: LUMOS 검토본 검증
+on:
+  push:
+    branches: [fix/lumos-round1-data-trace-20260920]
+    paths:
+      - 'client/**'
+      - 'server/**'
+      - 'shared/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'tsconfig.json'
+      - 'vite.config.ts'
+      - '.github/workflows/lumos-verify.yml'
+permissions:
+  contents: read
+concurrency:
+  group: lumos-review-verification
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.16.0'
+      - name: 소스 지문과 비교 자료 보존
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/lumos-evidence"
+          python3 - <<'PY'
+          import subprocess, json, os, pathlib, zipfile, hashlib
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'lumos-evidence'
+          head=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          base='30c8316d929d58b56f9127bf1da4f6a9ea6cf159'
+          (out/'revision.json').write_text(json.dumps({'head':head,'base':base},indent=2))
+          allowed={'.ts','.tsx','.js','.jsx','.mjs','.cjs','.json','.yaml','.yml','.css','.html','.md','.patch','.toml'}
+          for label,ref in [('review',head),('baseline',base)]:
+            raw=subprocess.check_output(['git','ls-tree','-rlz',ref])
+            records=[]
+            with zipfile.ZipFile(out/f'{label}-source.zip','w',zipfile.ZIP_DEFLATED) as z:
+              for row in raw.split(b'\0'):
+                if not row: continue
+                meta,p=row.split(b'\t',1); parts=meta.decode().split(); name=p.decode()
+                records.append({'path':name,'sha':parts[2],'size':int(parts[3])})
+                path=pathlib.PurePosixPath(name)
+                permitted=(name.startswith(('client/src/','client/public/data/','server/','shared/','scripts/','tests/','docs/')) or len(path.parts)==1)
+                if permitted and path.suffix in allowed and not path.name.startswith('.env'):
+                  z.writestr(name,subprocess.check_output(['git','show',f'{ref}:{name}']))
+            (out/f'{label}-tree.json').write_text(json.dumps(records,ensure_ascii=False,indent=2))
+          PY
+      - name: 공개 배포 읽기 진단 (인증 우회 없음)
+        continue-on-error: true
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import urllib.request, urllib.error, urllib.parse, os, pathlib, json, re, hashlib
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'lumos-evidence'/'deployment'
+          out.mkdir(parents=True,exist_ok=True)
+          origin='https://lumos-v2-preview.vercel.app'
+          results=[]
+          def read(path,label):
+            url=urllib.parse.urljoin(origin,path)
+            try:
+              req=urllib.request.Request(url,headers={'User-Agent':'LUMOS-readonly-audit/1.0'})
+              with urllib.request.urlopen(req,timeout=25) as r:
+                data=r.read(8*1024*1024+1)
+                rec={'url':url,'finalUrl':r.url,'status':r.status,'contentType':r.headers.get('Content-Type'),'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest()}
+              if len(data)>8*1024*1024: raise ValueError('response exceeded 8 MiB audit limit')
+              (out/label).write_bytes(data);results.append(rec);return data
+            except Exception as e: results.append({'url':url,'error':str(e)});return b''
+          html=read('/','index.html').decode('utf8','replace')
+          read('/build-info.json','build-info-response.txt')
+          read('/data/content-manager-artworks.json','catalog-response.txt')
+          paths=set(re.findall(r'(?:src|href)=["\']([^"\']+\.(?:js|css)(?:\?[^"\']*)?)["\']',html))
+          for i,p in enumerate(sorted(paths)[:12]):
+            url=urllib.parse.urljoin(origin,p)
+            if urllib.parse.urlsplit(url).netloc==urllib.parse.urlsplit(origin).netloc:
+              read(p,f'bundle-{i}.'+('css' if '.css' in p else 'js'))
+          (out/'http-results.json').write_text(json.dumps(results,ensure_ascii=False,indent=2))
+          print(json.dumps(results,ensure_ascii=False,indent=2))
+          PY
+      - name: pnpm 준비
+        id: manager
+        continue-on-error: true
+        run: npm install --global pnpm@10.4.1 --ignore-scripts
+      - name: 잠금파일 기준 설치
+        id: install
+        if: steps.manager.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm install --frozen-lockfile 2>&1 | tee "$RUNNER_TEMP/lumos-evidence/install.log"
+      - name: 테스트·타입검사·미디어·빌드 (실패도 기록)
+        id: checks
+        if: steps.install.outcome == 'success'
+        shell: bash
+        run: |
+          set +e
+          for cmd in test:round1 check audit:media build; do
+            safe=${cmd//:/-}
+            pnpm "$cmd" > "$RUNNER_TEMP/lumos-evidence/$safe.log" 2>&1
+            code=$?
+            printf '%s=%s\n' "$cmd" "$code" | tee -a "$RUNNER_TEMP/lumos-evidence/exit-codes.txt"
+            tail -n 70 "$RUNNER_TEMP/lumos-evidence/$safe.log"
+          done
+          mkdir -p "$RUNNER_TEMP/lumos-evidence/audits"
+          cp dist/audits/*.json "$RUNNER_TEMP/lumos-evidence/audits/" 2>/dev/null || true
+          cp dist/public/build-info.json "$RUNNER_TEMP/lumos-evidence/" 2>/dev/null || true
+          exit 0
+      - name: 진단 증거 업로드
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lumos-verification-${{ github.sha }}
+          path: ${{ runner.temp }}/lumos-evidence/
+          retention-days: 7
+          if-no-files-found: error
+      - name: 미검증·실패 상태를 성공으로 처리하지 않기
+        if: always()
+        shell: bash
+        env:
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
+        run: |
+          test "$INSTALL_OUTCOME" = success || exit 1
+          test -f "$RUNNER_TEMP/lumos-evidence/exit-codes.txt" || exit 1
+          test "$(wc -l < "$RUNNER_TEMP/lumos-evidence/exit-codes.txt")" -eq 4 || exit 1
+          if grep -Eq '=[1-9][0-9]*$' "$RUNNER_TEMP/lumos-evidence/exit-codes.txt"; then exit 1; fi
