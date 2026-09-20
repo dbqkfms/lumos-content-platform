@@ -5,11 +5,14 @@
   "license": "MIT",
   "scripts": {
     "dev": "vite --host",
-    "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+    "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist && node scripts/write-build-info.mjs",
     "start": "NODE_ENV=production node dist/index.js",
     "preview": "vite preview --host",
     "check": "tsc --noEmit",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "build:info": "node scripts/write-build-info.mjs",
+    "audit:media": "node scripts/audit-media.mjs",
+    "test:round1": "node --test tests/catalog-rules.test.cjs tests/build-and-media.test.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

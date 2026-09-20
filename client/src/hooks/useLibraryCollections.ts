@@ -1,92 +1,13 @@
 import { useMemo } from "react";
+import { useMarketplace, type Artwork } from "@/contexts/MarketplaceContext";
+import { buildLibraryCollections, type DecoratedArtwork } from "@/lib/catalogRules";
 
-import { localArtworks, type Artwork as LocalArtwork } from "@/data/localArtworks";
-import { standardArtworks, type Artwork as StandardArtwork } from "@/data/standardArtworks";
-import { useContentManagerArtworks } from "@/hooks/useContentManager";
+export type LibraryArtwork = DecoratedArtwork<Artwork>;
 
-type Artwork = StandardArtwork | LocalArtwork;
-
-export type LibraryArtwork = Artwork & {
-  accent: "gold" | "blue";
-  collection: "originals" | "open" | "creator";
-  world: "standard" | "local";
-};
-
-function includesAny(text: string, keywords: string[]) {
-  return keywords.some((keyword) => text.includes(keyword));
-}
-
-function parseRuntimeSeconds(runtime: string) {
-  const match = runtime.match(/\d+/);
-  return match ? Number(match[0]) : 0;
-}
-
-function decorateArtwork(artwork: Artwork): LibraryArtwork {
-  const world = artwork.id.startsWith("standard-") ? "standard" : "local";
-  const accent = world === "standard" ? "gold" : "blue";
-  const tags = (artwork.tags ?? []).join(" ").toLowerCase();
-  const text = `${artwork.title} ${artwork.description} ${artwork.category} ${tags}`.toLowerCase();
-  const runtimeSeconds = parseRuntimeSeconds(artwork.runtime);
-  const isCreator = artwork.id.startsWith("lumos-");
-  const isOpen =
-    isCreator &&
-    (runtimeSeconds <= 12 ||
-      includesAny(text, ["sample", "open", "trial", "카페", "로비", "쇼룸", "free", "warm", "healing", "힐링"]));
-
-  return {
-    ...artwork,
-    accent,
-    collection: isCreator ? (isOpen ? "open" : "creator") : "originals",
-    world,
-  };
-}
-
-function pickFeatured<T>(items: T[], size: number) {
-  return items.slice(0, size);
-}
-
+// List cards and detail pages read the same normalized catalogue.
 export function useLibraryCollections() {
-  const { artworks: mergedStandard, loading: loadingStandard } = useContentManagerArtworks(standardArtworks, "standard");
-  const { artworks: mergedLocal, loading: loadingLocal } = useContentManagerArtworks(localArtworks, "local");
-
-  return useMemo(() => {
-    const originalsStandard = mergedStandard
-      .filter((artwork) => artwork.id.startsWith("standard-"))
-      .map(decorateArtwork);
-    const originalsLocal = mergedLocal
-      .filter((artwork) => artwork.id.startsWith("local-"))
-      .map(decorateArtwork);
-    const creatorPool = [...mergedStandard, ...mergedLocal]
-      .filter((artwork) => artwork.id.startsWith("lumos-"))
-      .map(decorateArtwork);
-
-    const openWorks = creatorPool.filter((artwork) => artwork.collection === "open");
-    const creatorWorks = creatorPool.filter((artwork) => artwork.collection === "creator");
-    const fallbackOpen = creatorWorks.slice(0, Math.max(0, 12 - openWorks.length));
-
-    const all = [...originalsStandard, ...originalsLocal, ...creatorPool];
-    const originals = [...originalsStandard, ...originalsLocal];
-
-    return {
-      loading: loadingStandard || loadingLocal,
-      all,
-      originals,
-      originalsStandard,
-      originalsLocal,
-      openWorks: [...openWorks, ...fallbackOpen].slice(0, 12),
-      creatorWorks,
-      featuredOriginals: pickFeatured(originals, 6),
-      featuredCreatorWorks: pickFeatured(creatorPool, 8),
-      featuredOpenWorks: pickFeatured([...openWorks, ...fallbackOpen], 8),
-      solutionHighlights: {
-        hotel: all.filter((artwork) => includesAny((artwork.tags ?? []).join(" ").toLowerCase(), ["호텔", "로비"])).slice(0, 3),
-        retail: all.filter((artwork) => includesAny((artwork.tags ?? []).join(" ").toLowerCase(), ["리테일", "쇼룸", "브랜드"])).slice(0, 3),
-        fnb: all.filter((artwork) => includesAny((artwork.tags ?? []).join(" ").toLowerCase(), ["카페", "레스토랑", "f&b"])).slice(0, 3),
-        office: all.filter((artwork) => includesAny((artwork.tags ?? []).join(" ").toLowerCase(), ["오피스", "라운지", "공용부"])).slice(0, 3),
-        public: all.filter((artwork) => includesAny((artwork.tags ?? []).join(" ").toLowerCase(), ["전시", "공공공간", "관광", "행사"])).slice(0, 3),
-      },
-    };
-  }, [loadingLocal, loadingStandard, mergedLocal, mergedStandard]);
+  const { artworks, loading } = useMarketplace();
+  return useMemo(() => ({ ...buildLibraryCollections(artworks), loading }), [artworks, loading]);
 }
 
 export const creatorSpotlights = [

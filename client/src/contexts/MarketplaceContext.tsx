@@ -30,6 +30,7 @@ export interface Artwork {
 }
 
 interface MarketplaceState {
+    loading: boolean;
     artworks: Artwork[];
     ownedLicenses: Artwork[];
     addArtwork: (artwork: Artwork) => void;
@@ -41,6 +42,7 @@ const staticArtworks: Artwork[] = buildStaticCatalog();
 const MarketplaceContext = createContext<MarketplaceState | undefined>(undefined);
 
 export const MarketplaceProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const [loading, setLoading] = useState(true);
     const [dynamicArtworks, setDynamicArtworks] = useState<Artwork[]>([]);
     const [ownedLicenses, setOwnedLicenses] = useState<Artwork[]>([]);
 
@@ -53,6 +55,11 @@ export const MarketplaceProvider: React.FC<{ children: ReactNode }> = ({ childre
                 ...normalizeManagedCatalog(managedItems),
                 ...contentManagerItems,
             ]));
+        }).catch(() => {
+            // Do not advertise a successful remote catalogue load on rejection.
+            console.warn("[LUMOS] Remote catalogue load failed; keeping the static catalogue.");
+        }).finally(() => {
+            if (mounted) setLoading(false);
         });
 
         return () => {
@@ -80,7 +87,7 @@ export const MarketplaceProvider: React.FC<{ children: ReactNode }> = ({ childre
     };
 
     return (
-        <MarketplaceContext.Provider value={{ artworks: mergedArtworks, ownedLicenses, addArtwork, acquireArtwork }}>
+        <MarketplaceContext.Provider value={{ loading, artworks: mergedArtworks, ownedLicenses, addArtwork, acquireArtwork }}>
             {children}
         </MarketplaceContext.Provider>
     );

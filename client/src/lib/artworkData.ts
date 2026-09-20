@@ -1,3 +1,4 @@
+import { uniqueArtworksById } from "@/lib/catalogRules";
 import type { Artwork } from "@/contexts/MarketplaceContext";
 
 export interface ManagedArtwork extends Artwork {
@@ -6,34 +7,10 @@ export interface ManagedArtwork extends Artwork {
   importedAt?: string;
 }
 
-const normalizeText = (value: string | undefined) => (value ?? "").trim().toLowerCase();
-const normalizeVideoName = (value: string | undefined) => {
-  const raw = normalizeText(value);
-  if (!raw) return "";
-  const [pathname] = raw.split("?");
-  const segments = pathname.split("/").filter(Boolean);
-  return segments.at(-1) ?? pathname;
-};
-
-const artworkKey = (artwork: Artwork) => {
-  if (artwork.videoSrc) {
-    return `video:${normalizeVideoName(artwork.videoSrc)}`;
-  }
-  return `fallback:${normalizeText(artwork.title)}:${normalizeText(artwork.image)}`;
-};
-
+// Asset basenames are not artwork identities: different creators may upload
+// preview.mp4. Retain separate IDs; review duplicate media in an asset audit.
 export function dedupeArtworks(artworks: Artwork[]): Artwork[] {
-  const seen = new Set<string>();
-  const deduped: Artwork[] = [];
-
-  for (const artwork of artworks) {
-    const key = artworkKey(artwork);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    deduped.push(artwork);
-  }
-
-  return deduped;
+  return uniqueArtworksById(artworks);
 }
 
 export async function loadManagedArtworks(): Promise<ManagedArtwork[]> {
