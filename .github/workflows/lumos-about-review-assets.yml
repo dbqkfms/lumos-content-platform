@@ -1,0 +1,37 @@
+name: LUMOS about image verification
+on:
+  push:
+    branches: [review/lumos-site-visual-20260920]
+    paths: [.github/workflows/lumos-about-review-assets.yml]
+permissions:
+  contents: read
+jobs:
+  capture:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - name: Read original public images only
+        run: |
+          python3 - <<'PY'
+          import urllib.request,pathlib,json,hashlib
+          out=pathlib.Path('about-review');root=out/'public';origin='https://lumos-v2-preview.vercel.app'
+          names=['ink_01_misty_mountains','ink_03_crane','ink_06_plum_blossoms','nature_05_mountain_sunset','nature_10_fog_valley']
+          records=[]
+          for name in names:
+              path='/images/curated/'+name+'.jpg';r={'path':path,'url':origin+path}
+              try:
+                  with urllib.request.urlopen(origin+path,timeout=20) as resp:
+                      mime=resp.headers.get('Content-Type','');data=resp.read(10000001)
+                      if not mime.startswith('image/') or len(data)>10000000:raise ValueError('Unexpected asset')
+                      p=root/path.lstrip('/');p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(data)
+                      r.update(status=resp.status,mime=mime,bytes=len(data),sha256=hashlib.sha256(data).hexdigest())
+              except Exception as e:r['error']=str(e)
+              records.append(r)
+          out.mkdir(parents=True,exist_ok=True);(out/'manifest.json').write_text(json.dumps(records,indent=2))
+          print(json.dumps(records,indent=2))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lumos-about-review-assets
+          path: about-review/
+          retention-days: 3
