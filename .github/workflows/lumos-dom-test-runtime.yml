@@ -1,0 +1,29 @@
+name: LUMOS DOM unit-test runtime
+on:
+  push:
+    branches: [review/lumos-site-visual-20260920]
+    paths: [.github/workflows/lumos-dom-test-runtime.yml]
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22.16.0
+      - name: Install a pinned DOM test library, with no project or account data
+        run: |
+          mkdir -p dom-runtime
+          cd dom-runtime
+          printf '{"private":true,"name":"lumos-dom-test-runtime","version":"1.0.0"}\n' > package.json
+          npm install --save-exact --ignore-scripts jsdom@26.1.0
+          node -e "const fs=require('fs');fs.writeFileSync('versions.json',JSON.stringify({node:process.version,jsdom:require('jsdom/package.json').version,purpose:'DOM unit tests only; not browser navigation, screenshots or deployment'},null,2))"
+          tar -czf node-modules.tar.gz node_modules
+          rm -rf node_modules
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lumos-dom-test-runtime
+          path: dom-runtime/
+          retention-days: 3
