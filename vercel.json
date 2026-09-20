@@ -1,9 +1,12 @@
 {
-  "buildCommand": "pnpm build",
-  "outputDirectory": "dist/public",
-  "installCommand": "pnpm install",
-  "framework": null,
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/artwork/:id",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/portal/:path*",
+      "destination": "/index.html"
+    }
   ]
 }

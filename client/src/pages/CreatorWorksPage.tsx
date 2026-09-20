@@ -1,8 +1,9 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useLocation } from "wouter";
 import { Search, X, Layers, ArrowRight, UserRound, ShieldCheck, Palette, Eye, CheckCircle2, Upload } from "lucide-react";
 import Header from "@/components/Header";
 import FloatingCTA from "@/components/FloatingCTA";
+import { newestFirst } from "@/lib/catalogPresentation";
 import { creatorSpotlights, useLibraryCollections, type LibraryArtwork } from "@/hooks/useLibraryCollections";
 
 const CARD_VIDEO_MODE: "hover" | "autoplay" = "hover";
@@ -65,6 +66,12 @@ function CreatorArtworkCard({ artwork, onClick }: { artwork: LibraryArtwork; onC
     <div
       className="gallery-card group cursor-pointer"
       onClick={onClick}
+      role="link"
+      tabIndex={0}
+      aria-label={`${artwork.title} 상세 보기`}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onClick(); }
+      }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
@@ -79,6 +86,7 @@ function CreatorArtworkCard({ artwork, onClick }: { artwork: LibraryArtwork; onC
           <video
             ref={videoRef}
             src={effectiveVideoSrc}
+            preload="none"
             loop
             muted
             playsInline
@@ -111,7 +119,7 @@ function CreatorArtworkCard({ artwork, onClick }: { artwork: LibraryArtwork; onC
             className="font-accent text-[9px] tracking-[0.24em] bg-black/50 backdrop-blur-sm px-2.5 py-1 border"
             style={{ color: accent, borderColor: `${accent}33` }}
           >
-            HOVER PREVIEW
+            {showHoverVideo ? "마우스를 올려 미리보기" : "상세에서 영상 보기"}
           </div>
         </div>
       </div>
@@ -156,16 +164,11 @@ function SkeletonCard() {
 
 export default function CreatorWorksPage() {
   const [, setLocation] = useLocation();
-  const { creatorWorks, featuredCreatorWorks } = useLibraryCollections();
+  const { creatorWorks, featuredCreatorWorks, loading: isLoading } = useLibraryCollections();
   const [activeQuick, setActiveQuick] = useState("전체");
   const [activeFilter, setActiveFilter] = useState("전체");
   const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 800);
-    return () => clearTimeout(timer);
-  }, []);
 
   const filteredArtworks = useMemo(() => {
     let pool = creatorWorks;
@@ -197,7 +200,7 @@ export default function CreatorWorksPage() {
           (art.tags ?? []).some((tag) => tag.toLowerCase().includes(q)),
       );
     }
-    return result;
+    return activeQuick === "최신" ? newestFirst(result) : result;
   }, [activeQuick, activeFilter, creatorWorks, featuredCreatorWorks, searchQuery]);
 
   return (

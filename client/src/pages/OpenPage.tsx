@@ -1,8 +1,9 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useLocation } from "wouter";
 import { Search, X, Layers, ArrowRight, Sparkles } from "lucide-react";
 import Header from "@/components/Header";
 import FloatingCTA from "@/components/FloatingCTA";
+import { newestFirst } from "@/lib/catalogPresentation";
 import { useLibraryCollections, type LibraryArtwork } from "@/hooks/useLibraryCollections";
 
 const CARD_VIDEO_MODE: "hover" | "autoplay" = "hover";
@@ -38,6 +39,12 @@ function OpenArtworkCard({ artwork, onClick }: { artwork: LibraryArtwork; onClic
     <div
       className="gallery-card group cursor-pointer"
       onClick={onClick}
+      role="link"
+      tabIndex={0}
+      aria-label={`${artwork.title} 상세 보기`}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onClick(); }
+      }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
@@ -52,6 +59,7 @@ function OpenArtworkCard({ artwork, onClick }: { artwork: LibraryArtwork; onClic
           <video
             ref={videoRef}
             src={effectiveVideoSrc}
+            preload="none"
             loop
             muted
             playsInline
@@ -78,7 +86,7 @@ function OpenArtworkCard({ artwork, onClick }: { artwork: LibraryArtwork; onClic
             className="font-accent text-[9px] tracking-[0.24em] bg-black/50 backdrop-blur-sm px-2.5 py-1 border"
             style={{ color: accent, borderColor: `${accent}33` }}
           >
-            HOVER PREVIEW
+            {showHoverVideo ? "마우스를 올려 미리보기" : "상세에서 영상 보기"}
           </div>
         </div>
       </div>
@@ -121,16 +129,11 @@ function SkeletonCard() {
 
 export default function OpenPage() {
   const [, setLocation] = useLocation();
-  const { openWorks, featuredOpenWorks } = useLibraryCollections();
+  const { openWorks, featuredOpenWorks, loading: isLoading } = useLibraryCollections();
   const [activeQuick, setActiveQuick] = useState("전체");
   const [activeFilter, setActiveFilter] = useState("전체");
   const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 800);
-    return () => clearTimeout(timer);
-  }, []);
 
   const filteredArtworks = useMemo(() => {
     let pool = openWorks;
@@ -162,7 +165,7 @@ export default function OpenPage() {
           (art.tags ?? []).some((tag) => tag.toLowerCase().includes(q)),
       );
     }
-    return result;
+    return activeQuick === "최신" ? newestFirst(result) : result;
   }, [activeQuick, activeFilter, openWorks, featuredOpenWorks, searchQuery]);
 
   const handleContactClick = () => {
@@ -302,9 +305,9 @@ export default function OpenPage() {
               <div className="w-16 h-16 rounded-full bg-[#93C5FD]/10 flex items-center justify-center mb-6">
                 <Layers className="w-7 h-7 text-[#93C5FD]/50" />
               </div>
-              <h3 className="text-display text-xl text-white mb-3">검색 결과 없음</h3>
+              <h3 className="text-display text-xl text-white mb-3">{openWorks.length ? "검색 결과 없음" : "공개 컬렉션 준비 중"}</h3>
               <p className="text-gray-600 text-sm mb-8 max-w-xs">
-                "{searchQuery || activeFilter}"에 해당하는 작품을 찾을 수 없습니다.
+                {openWorks.length ? `"${searchQuery || activeFilter}"에 해당하는 작품을 찾을 수 없습니다.` : "현재 표시할 공개 컬렉션이 없습니다. 콘텐츠와 이용 조건은 도입 문의에서 확인해 주세요."}
               </p>
               <button
                 onClick={() => { setSearchQuery(""); setActiveQuick("전체"); setActiveFilter("전체"); }}

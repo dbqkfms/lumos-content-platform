@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useLocation } from "wouter";
 import { Search, X, Layers } from "lucide-react";
 import Header from "@/components/Header";
@@ -35,6 +35,12 @@ function ArtworkCard({ artwork, onClick }: { artwork: Artwork; onClick: () => vo
     <div
       className="gallery-card gallery-card-local group cursor-pointer"
       onClick={onClick}
+      role="link"
+      tabIndex={0}
+      aria-label={`${artwork.title} 상세 보기`}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onClick(); }
+      }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
@@ -49,6 +55,7 @@ function ArtworkCard({ artwork, onClick }: { artwork: Artwork; onClick: () => vo
           <video
             ref={videoRef}
             src={effectiveVideoSrc}
+            preload="none"
             loop
             muted
             playsInline
@@ -63,7 +70,7 @@ function ArtworkCard({ artwork, onClick }: { artwork: Artwork; onClick: () => vo
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         <div className="absolute bottom-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
           <div className="font-accent text-[9px] tracking-[0.24em] text-[#93C5FD] bg-black/50 backdrop-blur-sm px-2.5 py-1 border border-[#93C5FD]/20">
-            HOVER PREVIEW
+            {showHoverVideo ? "마우스를 올려 미리보기" : "상세에서 영상 보기"}
           </div>
         </div>
       </div>
@@ -93,10 +100,9 @@ function SkeletonCard() {
 
 export default function LocalWorld() {
   const [, setLocation] = useLocation();
-  const { artworks } = useMarketplace();
+  const { artworks, loading: isLoading } = useMarketplace();
   const [activeFilter, setActiveFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
 
   const localArtworks = useMemo(
     () => artworks.filter((artwork) => artwork.worldType === "local"),
@@ -108,10 +114,6 @@ export default function LocalWorld() {
     [artworks],
   );
 
-  useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 800);
-    return () => clearTimeout(timer);
-  }, []);
 
   const filteredArtworks = useMemo(() => {
     let result = activeFilter === "All"

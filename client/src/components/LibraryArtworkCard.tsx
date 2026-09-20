@@ -2,16 +2,8 @@ import { useRef, useState } from "react";
 import { ArrowUpRight, PlayCircle, Play } from "lucide-react";
 
 import type { LibraryArtwork } from "@/hooks/useLibraryCollections";
+import { isVimeoUrl, vimeoEmbedUrl } from "@/lib/videoUrls";
 
-function isVimeoUrl(src?: string) {
-  return !!src && (src.includes("vimeo.com") || src.includes("player.vimeo.com"));
-}
-
-/* Vimeo URL에 autoplay+muted+loop 파라미터 추가 */
-function vimeoAutoplayUrl(src: string) {
-  const sep = src.includes("?") ? "&" : "?";
-  return `${src}${sep}autoplay=1&muted=1&loop=1&background=0&title=0&byline=0&portrait=0`;
-}
 
 export default function LibraryArtworkCard({
   artwork,
@@ -57,6 +49,7 @@ export default function LibraryArtworkCard({
           <video
             ref={videoRef}
             src={effectiveVideoSrc}
+            preload="none"
             muted
             loop
             playsInline
@@ -67,7 +60,8 @@ export default function LibraryArtworkCard({
         {/* Vimeo 호버 iframe */}
         {isVimeo && showVimeo ? (
           <iframe
-            src={vimeoAutoplayUrl(effectiveVideoSrc!)}
+            src={vimeoEmbedUrl(effectiveVideoSrc!, { autoplay: true, muted: true, loop: true })}
+            title={`${artwork.title} 영상 미리보기`}
             allow="autoplay; fullscreen"
             frameBorder={0}
             className="absolute inset-0 h-full w-full opacity-0 transition-opacity duration-300 group-hover:opacity-100"
