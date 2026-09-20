@@ -1,0 +1,36 @@
+name: LUMOS isolated visual review dependencies
+on:
+  push:
+    branches: [review/lumos-site-visual-20260920]
+    paths: [.github/workflows/lumos-visual-dependencies.yml]
+permissions:
+  contents: read
+jobs:
+  dependencies:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.16.0
+      - name: Install existing locked dependencies, without project lifecycle scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Package build dependencies for the isolated review workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p visual-runtime
+          node -e "require('fs').writeFileSync('visual-runtime/versions.json',JSON.stringify({node:process.version,sha:process.env.GITHUB_SHA,run:process.env.GITHUB_RUN_ID, purpose:'offline source-level site visual review; not a deployment'},null,2))"
+          tar -czf visual-runtime/node-modules.tar.gz node_modules
+          cp package.json pnpm-lock.yaml visual-runtime/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lumos-visual-runtime
+          path: visual-runtime/
+          retention-days: 3
