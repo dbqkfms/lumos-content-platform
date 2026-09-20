@@ -1,0 +1,50 @@
+name: LUMOS visual review public assets
+on:
+  push:
+    branches: [review/lumos-site-visual-20260920]
+    paths: [.github/workflows/lumos-visual-assets.yml]
+permissions:
+  contents: read
+jobs:
+  capture:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - name: Read selected public assets, no credentials and no media conversion
+        shell: bash
+        run: |
+          mkdir -p visual-assets/public
+          python3 - <<'PY'
+          import urllib.request, pathlib, concurrent.futures, hashlib, json
+          root=pathlib.Path('visual-assets/public'); origin='https://lumos-v2-preview.vercel.app'
+          paths=['/assets/lumos-logo.png','/assets/lumos-logo.webp','/data/content-manager-artworks.json']
+          paths += ['/thumbnails/'+x for x in ['home-hero-mobile.webp','cosmic-flow-card.webp','bonghwang-card.webp','seonwon-mobile.webp','fractal-lotus-mobile.webp','crystal-burst.jpg','crystal-chandelier.jpg','gwangmyeong.jpg','og-home.jpg']]
+          paths += ['/videos/'+x for x in ['standard/diamond-drift.mp4','standard/crystal-burst.mp4','local/seonwon.mp4','standard/majestic-bloom.mp4','standard/crystal-chandelier.mp4','local/gwangmyeong.mp4']]
+          images=['pro-hotel-lobby-realistic','pro-cafe-seongsu-night','pro-retail-led-wall-realistic','pro-gallery-installation-realistic','pro-hanok-cafe-seongbuk','pro-winebar-itaewon-night','pro-wellness-bamboo','pro-corridor-portal','pro-dining-blackgold','pro-facade-boutique','pro-facade-resort','pro-hotel-lobby-gold','pro-rooftop-moon','about-thisglobal-studio']
+          paths += ['/images/pro/'+x+'.'+ext for x in images for ext in ['jpg','webp']]
+          for stem in ['scenario-dragon-ocean','scenario-gwanghwamun','scenario-nature-forest','scenario-korean-tradition']:paths += ['/assets/'+stem+'.png','/assets/'+stem+'.webp']
+          paths += ['/mockups/v3/standard-noe.jpg','/mockups/v3/standard-noe.webp','/images/mockups-v2/mockup-ultra-sunmoon.jpg','/images/mockups-v2/mockup-ultra-sunmoon.webp','/images/mockups-v2/mockup-immersive-palace.png','/images/mockups-v2/mockup-immersive-palace.webp']
+          for folder,names in [('immersive',['ink-mountain','phoenix','waterfall']),('facade',['moonjar-facade','building-aurora'])]:
+              for name in names:
+                  paths += ['/images/'+folder+'/'+name+'.'+ext for ext in ['png','jpg','webp']]
+          def fetch(path):
+              rec={'path':path,'url':origin+path}
+              try:
+                  request=urllib.request.Request(origin+path,headers={'User-Agent':'LUMOS-visual-review/1.0'})
+                  with urllib.request.urlopen(request,timeout=35) as resp:
+                      mime=resp.headers.get('Content-Type','');data=resp.read(40*1024*1024+1)
+                      if len(data)>40*1024*1024:raise ValueError('asset exceeds review limit')
+                      if not mime.startswith(('image/','video/','application/json')):raise ValueError('unexpected content type '+mime)
+                      target=root/path.lstrip('/');target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
+                      rec.update(status=resp.status,bytes=len(data),mime=mime,sha256=hashlib.sha256(data).hexdigest())
+              except Exception as exc:rec.update(error=str(exc))
+              return rec
+          with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool: records=list(pool.map(fetch,sorted(set(paths))))
+          pathlib.Path('visual-assets/manifest.json').write_text(json.dumps(records,ensure_ascii=False,indent=2))
+          print('success',sum('status' in r for r in records),'total',len(records))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lumos-visual-public-assets
+          path: visual-assets/
+          retention-days: 3
