@@ -1,0 +1,75 @@
+name: LUMOS 배포 원본 추적
+on:
+  push:
+    branches: [fix/lumos-round1-data-trace-20260920]
+    paths: ['.github/workflows/lumos-source-probe.yml']
+permissions:
+  contents: read
+jobs:
+  trace:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: 배포 힌트와 공개 원류만 확인
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import urllib.request, urllib.error, urllib.parse, pathlib, os, json, subprocess, re, hashlib
+          out=pathlib.Path(os.environ['RUNNER_TEMP'])/'lumos-source-trace';out.mkdir()
+          origin='https://lumos-v2-preview.vercel.app'
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self,req,fp,code,msg,headers,newurl): return None
+          opener=urllib.request.build_opener(NoRedirect)
+          records=[]
+          for p in ['/_src','/_logs','/build-info.json','/assets/index-CEm2vh4v.js.map','/assets/index-KOPxs_rA.css.map']:
+            row={'path':p}
+            try:
+              r=opener.open(urllib.request.Request(origin+p,headers={'User-Agent':'LUMOS-readonly-origin-trace/1.0'}),timeout=25)
+            except urllib.error.HTTPError as e:r=e
+            except Exception as e:row['error']=str(e);records.append(row);continue
+            with r:
+              row['status']=r.code;row['type']=r.headers.get('Content-Type','')
+              loc=r.headers.get('Location')
+              if loc:
+                u=urllib.parse.urlsplit(urllib.parse.urljoin(origin,loc));row['redirect']=urllib.parse.urlunsplit((u.scheme,u.netloc,u.path,'',''))
+                q=urllib.parse.parse_qs(u.query)
+                if 'next' in q:row['nextPath']=q['next'][0].split('?')[0]
+              raw=r.read(4*1024*1024+1)
+              row['bytes']=len(raw);row['sha256']=hashlib.sha256(raw).hexdigest()
+              if r.code==200 and ('json' in row['type'] or p.endswith('.map')) and len(raw)<=4*1024*1024:
+                try:
+                  data=json.loads(raw);row['jsonKeys']=list(data)[:15]
+                  if isinstance(data,dict) and 'sources' in data:
+                    row['sourceCount']=len(data['sources']);row['embeddedSources']=sum(bool(x) for x in data.get('sourcesContent',[]))
+                except (ValueError,TypeError):row['notJson']=True
+            records.append(row)
+          markers=['BuyerProofSummary.tsx','PreviewPlayer.tsx','PrivacyPage.tsx','TermsPage.tsx','WebpImage.tsx','BackToTop.tsx','Footer.tsx','StatCounter.tsx','VimeoEmbed.tsx','PressPage.tsx']
+          def git(root,*args):return subprocess.check_output(['git','-C',str(root),*args],text=True,stderr=subprocess.DEVNULL,timeout=150).strip()
+          repos=[]
+          for name,root in [('lumos-content-platform',pathlib.Path.cwd()),('lumos-media-art-library',out/'upstream')]:
+            if name=='lumos-media-art-library':
+              root.mkdir();git(root,'init');git(root,'remote','add','origin','https://github.com/dbqkfms/lumos-media-art-library.git')
+              git(root,'fetch','--filter=blob:none','--no-tags','origin','+refs/heads/*:refs/remotes/origin/*')
+            refs=git(root,'for-each-ref','--format=%(refname)','refs/remotes/origin').splitlines()
+            branches=[]
+            for ref in refs:
+              paths=git(root,'ls-tree','-r','--name-only',ref).splitlines()
+              hits=[p for p in paths if pathlib.PurePosixPath(p).name in markers]
+              branches.append({'ref':ref,'sha':git(root,'rev-parse',ref),'markerPaths':hits,'pathCount':len(paths)})
+            history=git(root,'log','--all','--format=%H','--','**/BuyerProofSummary.tsx','**/PreviewPlayer.tsx','**/PrivacyPage.tsx').splitlines()
+            repos.append({'repository':name,'branches':branches,'markerHistoryCommits':history})
+          report={'scope':'read-only; no auth bypass, no source modification','http':records,'repositories':repos}
+          (out/'source-trace.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
+          print('LUMOS_SOURCE_TRACE_BEGIN');print(json.dumps(report,ensure_ascii=False,indent=2));print('LUMOS_SOURCE_TRACE_END')
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: lumos-source-trace-${{ github.sha }}
+          path: ${{ runner.temp }}/lumos-source-trace/source-trace.json
+          retention-days: 14
+          if-no-files-found: error
