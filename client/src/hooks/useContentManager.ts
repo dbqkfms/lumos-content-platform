@@ -1,3 +1,4 @@
+import { fetchJsonArray, isCatalogueRecord } from "@/lib/fetchJsonArray";
 /**
  * Content Manager에서 내보낸 JSON 데이터를 런타임에 불러와
  * 기존 정적 작품 데이터와 합치는 훅
@@ -95,13 +96,8 @@ async function loadCMData() {
   if (cachedStandard !== null) return;
 
   try {
-    const resp = await fetch(CM_JSON_PATH);
-    if (!resp.ok) {
-      cachedStandard = [];
-      cachedLocal = [];
-      return;
-    }
-    const data: CMEntry[] = await resp.json();
+    const rows = await fetchJsonArray(CM_JSON_PATH);
+    const data = rows.filter((row): row is CMEntry => isCatalogueRecord(row));
     cachedStandard = data
       .filter(e => e.worldType === "standard")
       .map(cmToArtwork)
@@ -135,11 +131,14 @@ export function useContentManagerArtworks(
       fetchPromise = loadCMData();
     }
 
+    let active = true;
     fetchPromise.then(() => {
+      if (!active) return;
       const cm = worldType === "standard" ? cachedStandard! : cachedLocal!;
       setMerged(mergeUniqueArtworks(staticArtworks, cm));
       setLoading(false);
     });
+    return () => { active = false; };
   }, [staticArtworks, worldType]);
 
   return { artworks: merged, loading };

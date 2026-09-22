@@ -1,3 +1,4 @@
+import { fetchJsonArray, isCatalogueRecord } from "@/lib/fetchJsonArray";
 import type { Artwork } from "@/contexts/MarketplaceContext";
 
 export interface ManagedArtwork extends Artwork {
@@ -38,20 +39,8 @@ export function dedupeArtworks(artworks: Artwork[]): Artwork[] {
 
 export async function loadManagedArtworks(): Promise<ManagedArtwork[]> {
   try {
-    const response = await fetch(`/data/managed-artworks.json?ts=${Date.now()}`, {
-      headers: { Accept: "application/json" },
-    });
-
-    if (!response.ok) {
-      return [];
-    }
-
-    const payload = (await response.json()) as unknown;
-    if (!Array.isArray(payload)) {
-      return [];
-    }
-
-    return payload.filter((item): item is ManagedArtwork => Boolean(item && typeof item === "object" && "id" in item));
+    const payload = await fetchJsonArray(`/data/managed-artworks.json?ts=${Date.now()}`);
+    return payload.filter((item): item is ManagedArtwork => isCatalogueRecord(item));
   } catch {
     return [];
   }

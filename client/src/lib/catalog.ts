@@ -1,3 +1,5 @@
+import { fetchJsonArray, isCatalogueRecord } from "@/lib/fetchJsonArray";
+import { firstText, editorialTags } from "@/lib/catalogPresentation";
 import { localArtworks } from "@/data/localArtworks";
 import { standardArtworks } from "@/data/standardArtworks";
 import type { Artwork } from "@/contexts/MarketplaceContext";
@@ -59,37 +61,37 @@ function mapStaticArtwork(
   artwork: Artwork,
   line: "STANDARD" | "LOCAL",
 ): Artwork {
-  const title = humanizeArtworkId(artwork.id);
+  const title = firstText(artwork.titleKo, artwork.title, artwork.titleEn, humanizeArtworkId(artwork.id));
   return {
     ...artwork,
     title,
-    titleEn: title,
-    titleKo: title,
-    description: buildDescription(title, artwork.category, line, "static"),
+    titleEn: firstText(artwork.titleEn, artwork.title, title),
+    titleKo: firstText(artwork.titleKo, artwork.title, title),
+    description: firstText(artwork.description, buildDescription(title, artwork.category, line, "static")),
     worldType: line === "STANDARD" ? "standard" : "local",
     line,
     sourceType: "static",
     accessTier: "originals",
     artist: "LUMOS Originals",
-    tags: normalizeTags(artwork.category, line, artwork.displayType),
+    tags: editorialTags(artwork.tags, normalizeTags(artwork.category, line, artwork.displayType)),
   };
 }
 
 function mapManagedArtwork(artwork: ManagedArtwork): Artwork {
   const line = artwork.worldType === "standard" ? "STANDARD" : "LOCAL";
-  const title = artwork.titleEn || artwork.titleKo || artwork.title || humanizeArtworkId(artwork.id);
+  const title = firstText(artwork.titleKo, artwork.title, artwork.titleEn, humanizeArtworkId(artwork.id));
 
   return {
     ...artwork,
     title,
-    titleEn: artwork.titleEn || title,
-    titleKo: artwork.titleKo || title,
-    description: buildDescription(title, artwork.category || "Featured", line, "managed"),
+    titleEn: firstText(artwork.titleEn, artwork.title, title),
+    titleKo: firstText(artwork.titleKo, artwork.title, title),
+    description: firstText(artwork.description, buildDescription(title, artwork.category || "Featured", line, "managed")),
     line,
     sourceType: "managed",
     accessTier: "creator",
     artist: artwork.artist || "Featured Creator",
-    tags: normalizeTags(artwork.category || "Featured", line, artwork.displayType, artwork.styleCode),
+    tags: editorialTags(artwork.tags, normalizeTags(artwork.category || "Featured", line, artwork.displayType, artwork.styleCode)),
   };
 }
 
@@ -98,15 +100,15 @@ function mapContentManagerArtwork(entry: ContentManagerEntry, index: number): Ar
 
   const worldType = entry.worldType === "standard" ? "standard" : "local";
   const line = worldType === "standard" ? "STANDARD" : "LOCAL";
-  const title = entry.titleEn || entry.titleKo || entry.title || humanizeArtworkId(entry.id);
+  const title = firstText(entry.titleKo, entry.title, entry.titleEn, humanizeArtworkId(entry.id));
   const accessTier: Artwork["accessTier"] = index < OPEN_SAMPLE_LIMIT ? "open" : "creator";
 
   return {
     id: entry.id,
     title,
-    titleEn: entry.titleEn || title,
-    titleKo: entry.titleKo || title,
-    description: buildDescription(title, entry.category || "Featured", line, "content-manager"),
+    titleEn: firstText(entry.titleEn, entry.title, title),
+    titleKo: firstText(entry.titleKo, entry.title, title),
+    description: firstText(entry.description, buildDescription(title, entry.category || "Featured", line, "content-manager")),
     category: entry.category || "Featured",
     image: entry.image,
     videoSrc: entry.videoSrc || undefined,
@@ -114,7 +116,7 @@ function mapContentManagerArtwork(entry: ContentManagerEntry, index: number): Ar
     displayType: entry.displayType || "Horizontal",
     runtime: entry.runtime || "Loop",
     resolution: entry.resolution || "1920x1080",
-    tags: normalizeTags(entry.category || "Featured", line, entry.displayType || "Horizontal", entry.styleCode),
+    tags: editorialTags(entry.tags, normalizeTags(entry.category || "Featured", line, entry.displayType || "Horizontal", entry.styleCode)),
     worldType,
     line,
     sourceType: "content-manager",
@@ -134,17 +136,10 @@ export function buildStaticCatalog() {
 
 export async function loadContentManagerCatalog() {
   try {
-    const response = await fetch(`/data/content-manager-artworks.json?ts=${Date.now()}`, {
-      headers: { Accept: "application/json" },
-    });
-
-    if (!response.ok) return [];
-
-    const payload = (await response.json()) as unknown;
-    if (!Array.isArray(payload)) return [];
-
+    const payload = await fetchJsonArray(`/data/content-manager-artworks.json?ts=${Date.now()}`);
     return payload
-      .map((entry, index) => mapContentManagerArtwork(entry as ContentManagerEntry, index))
+      // Keep original indexes: filtering first would silently change the Open sample cutoff.
+      .map((entry, index) => isCatalogueRecord(entry) ? mapContentManagerArtwork(entry as ContentManagerEntry, index) : null)
       .filter((entry): entry is Artwork => Boolean(entry));
   } catch {
     return [];
