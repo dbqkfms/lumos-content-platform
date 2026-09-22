@@ -49,6 +49,30 @@ jobs:
           printf 'typecheck=%s\nunit=%s\nbuild=%s\n' "$types" "$units" "$build" | tee .qa/exit-codes.txt
           tail -n 30 .qa/typecheck.log .qa/unit.log .qa/build.log
           test "$types" -eq 0 && test "$units" -eq 0 && test "$build" -eq 0
+      - name: 브라우저 검증 도구 설치
+        run: |
+          python3 -m pip install playwright==1.57.0
+          python3 -m playwright install --with-deps chromium
+      - name: 원본과 수정본의 실제 브라우저 대조
+        run: |
+          root="$PWD"
+          baseline="$RUNNER_TEMP/lumos-git-baseline"
+          git worktree add --detach "$baseline" 30c8316d929d58b56f9127bf1da4f6a9ea6cf159
+          ln -s "$root/node_modules" "$baseline/node_modules"
+          (cd "$baseline" && npm run build) > .qa/baseline-build.log 2>&1
+          npm run preview -- --host 127.0.0.1 --port 4173 --strictPort > .qa/candidate-server.log 2>&1 &
+          candidate_pid=$!
+          (cd "$baseline" && npm run preview -- --host 127.0.0.1 --port 4174 --strictPort) > .qa/baseline-server.log 2>&1 &
+          baseline_pid=$!
+          trap 'kill "$candidate_pid" "$baseline_pid" 2>/dev/null || true' EXIT
+          for port in 4173 4174; do
+            for n in $(seq 1 30); do
+              curl --fail --silent "http://127.0.0.1:$port/" -o /dev/null && break
+              sleep 1
+            done
+            curl --fail --silent "http://127.0.0.1:$port/" -o /dev/null
+          done
+          python3 scripts/browser-regression.py | tee .qa/browser.log
       - name: 검사 결과만 보관
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

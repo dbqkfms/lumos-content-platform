@@ -10,7 +10,7 @@ ALLOWED = {
     "client/src/lib/fetchJsonArray.ts", "client/src/lib/catalogPresentation.ts",
     "client/src/lib/artworkData.ts", "client/src/lib/catalog.ts",
     "client/src/hooks/useContentManager.ts", "tests/catalogue-resilience.cjs",
-    "scripts/verify-preservation.py", ".github/workflows/lumos-edit-verify.yml",
+    "scripts/verify-preservation.py", "scripts/browser-regression.py", ".github/workflows/lumos-edit-verify.yml",
     "docs/루모스_원본보존_작업기록_20260922.md",
 }
 root = Path(__file__).resolve().parents[1]
