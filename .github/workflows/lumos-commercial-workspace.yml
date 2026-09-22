@@ -1,0 +1,35 @@
+name: LUMOS commercial UX workspace
+on:
+  push:
+    branches: [work/lumos-commercial-20260922]
+    paths: [.github/workflows/lumos-commercial-workspace.yml]
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - name: Install exact lockfile for isolated local verification
+        run: npm ci --legacy-peer-deps --no-audit --no-fund
+      - name: Prepare source and build dependencies (no environment or credentials)
+        run: |
+          mkdir -p /tmp/lumos-workspace
+          git archive HEAD | gzip > /tmp/lumos-workspace/git-source.tar.gz
+          tar -czf /tmp/lumos-workspace/build-dependencies.tar.gz node_modules
+          git ls-tree -r HEAD > /tmp/lumos-workspace/git-tree.txt
+          git rev-parse HEAD > /tmp/lumos-workspace/base-commit.txt
+          node --version > /tmp/lumos-workspace/node-version.txt
+          sha256sum /tmp/lumos-workspace/*.tar.gz > /tmp/lumos-workspace/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lumos-commercial-build-workspace
+          path: /tmp/lumos-workspace/
+          retention-days: 1
+          compression-level: 0
